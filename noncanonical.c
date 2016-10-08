@@ -7,14 +7,23 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <string.h>
+#include <unistd.h>
 #define BAUDRATE B38400
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
 #define FALSE 0
 #define TRUE 1
-
+#define FLAG 0x7e
+#define A 0x03
+#define C 0x07
+unsigned char ua[5];
 volatile int STOP=FALSE;
-
+void setUA(){
+  ua[0]=FLAG;
+  ua[1]=A;
+  ua[2]=C;
+  ua[3]=ua[1]^ua[2];
+  ua[4]=FLAG;
+}
 int main(int argc, char** argv)
 {
     int fd,c, res;
@@ -51,8 +60,8 @@ int main(int argc, char** argv)
     /* set input mode (non-canonical, no echo,...) */
     newtio.c_lflag = 0;
 
-    newtio.c_cc[VTIME]    = 1;   /* inter-character timer unused */
-    newtio.c_cc[VMIN]     = 700;   /* blocking read until 5 chars received */
+    newtio.c_cc[VTIME]    = 0;   /* inter-character timer unused */
+    newtio.c_cc[VMIN]     = 1;   /* blocking read until 5 chars received */
 
 
 
@@ -74,13 +83,16 @@ int main(int argc, char** argv)
 
     int c1=0;
     while (STOP==FALSE) {       /* loop for input */
-      res = read(fd,&buf[c1],1);   /* returns after 5 chars have been input */
+      res = read(fd,&buf,5);   /* returns after 5 chars have been input */
      /* so we can printf... */
-      if (buf[c1]=='^'){
+      if (res>0){
         STOP=TRUE;
-        printf(":%.*s:%d\n", c1,buf, c1-1);
+        printf("Set received\n");
+        printf(":%s:%d\n", buf, c1);
+        setUA();
+        printf("UA set and sent\n");
+        write(fd,&ua,5);
       }
-      c1++;
     }
 
 

@@ -7,13 +7,25 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
 #define BAUDRATE B38400
 #define MODEMDEVICE "/dev/ttyS1"
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
 #define FALSE 0
 #define TRUE 1
-
+#define FLAG 0x7e
+#define A 0x03
+#define C 0x03
 volatile int STOP=FALSE;
+unsigned char set[5];
+unsigned char ua[5];
+void letsSet(){
+  set[0]=FLAG;
+  set[1]=A;
+  set[2]=C;
+  set[3]=set[1]^set[2];
+  set[4]=FLAG;
+}
 
 int main(int argc, char** argv)
 {
@@ -52,8 +64,8 @@ int main(int argc, char** argv)
     /* set input mode (non-canonical, no echo,...) */
     newtio.c_lflag = 0;
 
-    newtio.c_cc[VTIME]    = 1;   /* inter-character timer unused */
-    newtio.c_cc[VMIN]     = 700;   /* blocking read until 5 chars received */
+    newtio.c_cc[VTIME]    = 0;   /* inter-character timer unused */
+    newtio.c_cc[VMIN]     = 1;   /* blocking read until 5 chars received */
 
 
 
@@ -73,14 +85,21 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\n");
 
-
-
-    gets(buf);
+    letsSet();
     /*testing*/
-    res = write(fd,&buf,strlen(buf)+1);   
+    write(1,&set,5);
+    res=write(fd,&set,5);   
     printf("\n%d bytes written\n", res);
- 
-
+    int c1=0;
+    while (STOP==FALSE) {       /* loop for input */
+      res = read(fd,&buf,5);   /* returns after 5 chars have been input */
+     /* so we can printf... */
+      if (res>0){
+        STOP=TRUE;
+        printf("UA received\n");
+        printf(":%s:%d\n", buf, c1);
+      }
+    }
   /* 
     O ciclo FOR e as instruções seguintes devem ser alterados de modo a respeitar 
     o indicado no guião 
