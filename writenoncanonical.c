@@ -6,7 +6,7 @@
 #include <termios.h>
 #include <stdio.h>
 #include <string.h>
-
+#include <stdlib.h>
 #define BAUDRATE B38400
 #define MODEMDEVICE "/dev/ttyS1"
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
@@ -52,8 +52,8 @@ int main(int argc, char** argv)
     /* set input mode (non-canonical, no echo,...) */
     newtio.c_lflag = 0;
 
-    newtio.c_cc[VTIME]    = 0;   /* inter-character timer unused */
-    newtio.c_cc[VMIN]     = 5;   /* blocking read until 5 chars received */
+    newtio.c_cc[VTIME]    = 1;   /* inter-character timer unused */
+    newtio.c_cc[VMIN]     = 700;   /* blocking read until 5 chars received */
 
 
 
@@ -76,11 +76,9 @@ int main(int argc, char** argv)
 
 
     gets(buf);
-    
     /*testing*/
-    write(1,buf,255);
-    res = write(fd,buf,255);   
-    printf("%d bytes written\n", res);
+    res = write(fd,&buf,strlen(buf)+1);   
+    printf("\n%d bytes written\n", res);
  
 
   /* 
