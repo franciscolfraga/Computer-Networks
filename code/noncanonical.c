@@ -5,14 +5,25 @@
 #include <fcntl.h>
 #include <termios.h>
 #include <stdio.h>
-
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
 #define BAUDRATE B38400
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
 #define FALSE 0
 #define TRUE 1
-
+#define FLAG 0x7e
+#define A 0x03
+#define C 0x07
+unsigned char ua[5];
 volatile int STOP=FALSE;
-
+void setUA(){
+  ua[0]=FLAG;
+  ua[1]=A;
+  ua[2]=C;
+  ua[3]=ua[1]^ua[2];
+  ua[4]=FLAG;
+}
 int main(int argc, char** argv)
 {
     int fd,c, res;
@@ -50,7 +61,7 @@ int main(int argc, char** argv)
     newtio.c_lflag = 0;
 
     newtio.c_cc[VTIME]    = 0;   /* inter-character timer unused */
-    newtio.c_cc[VMIN]     = 5;   /* blocking read until 5 chars received */
+    newtio.c_cc[VMIN]     = 1;   /* blocking read until 5 chars received */
 
 
 
@@ -70,12 +81,18 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\n");
 
-
+    int c1=0;
     while (STOP==FALSE) {       /* loop for input */
-      res = read(fd,buf,255);   /* returns after 5 chars have been input */
-      buf[res]=0;               /* so we can printf... */
-      printf(":%s:%d\n", buf, res);
-      if (buf[0]=='z') STOP=TRUE;
+      res = read(fd,&buf,5);   /* returns after 5 chars have been input */
+     /* so we can printf... */
+      if (res>0){
+        STOP=TRUE;
+        printf("Set received\n");
+        printf(":%s:%d\n", buf, c1);
+        setUA();
+        printf("UA set and sent\n");
+        write(fd,&ua,5);
+      }
     }
 
 
