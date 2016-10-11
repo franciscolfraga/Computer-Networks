@@ -5,9 +5,9 @@
 #include <dirent.h>
 
 int ID(){
+	printf("\tPlease help me to identify you:\n\n");
 	int id=0;
 	while(id!=2 && id!=1){
-
 	printf("\t1 for I'm the file sender\n");
 	printf("\t2 for I'm the file receiver\n\t");
 	scanf("%d", &id);
@@ -24,7 +24,7 @@ char* sFile(){
 	int cont=0;
 	if (d){
 		while ((dir = readdir(d)) != NULL){
-			printf("\t\t%d-%s\n",cont+1, dir->d_name);
+			printf("\t\t%d for %s\n",cont+1, dir->d_name);
 			filename[cont]=dir->d_name;
 			cont++;
 		}
@@ -71,8 +71,8 @@ void printprofile(int id, char* file, char* sport){
 }
 char* serial(){
 	printf("\tSerial ports available:\n");
-	printf("\t1. /dev/ttyS0\n");
-	printf("\t2. /dev/ttyS1\n");
+	printf("\t1 for /dev/ttyS0\n");
+	printf("\t2 for /dev/ttyS1\n");
 	printf("\tChoose the serial port to exchange data: ");
 	int portnr;
 	scanf("%d",&portnr);

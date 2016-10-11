@@ -3,12 +3,12 @@
 #include <unistd.h>
 #include <string.h>
 #include "settings.h"
+#include "exchange.h"
 
 int main(){
 	clearscreen();
 	printf("\tThis file would run in the 2 machines (sender and receiver).\n");
-	printf("\tLet's set up your settings\n");
-	printf("\tPlease help me to identify you:\n\n");
+	printf("\tLet's set you up.\n");
 	int id= ID();
 	char* file=NULL;
 	char* sport=NULL;
@@ -28,5 +28,7 @@ int main(){
 	sport=serial();
 	clearscreen();
 	printprofile(id,file,sport);
+	letsExchange(id,sport,file);
+	//falta baudrate, nr de tentativas etc
 	return 0;
 }
