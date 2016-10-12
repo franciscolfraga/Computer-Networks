@@ -44,7 +44,8 @@ char* sFile(){
 	return finalfile;
 }
 char *rFile(){
-	printf("\tPlease type the output name of the file you will receive: ");
+	printf("\tPlease type the output name of the file you will receive.\n ");
+	printf("\tType 'o' if you want the original one: ");
 	char* file=malloc(sizeof(file)*100);
 	scanf("%s",file);
 	printf("%s\n",file);

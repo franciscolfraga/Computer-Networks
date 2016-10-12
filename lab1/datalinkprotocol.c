@@ -28,7 +28,7 @@ int main(){
 	sport=serial();
 	clearscreen();
 	printprofile(id,file,sport);
-	letsExchange(id,sport,file);
+	letsExchange(id,file,sport);
 	//falta baudrate, nr de tentativas etc
 	return 0;
 }
