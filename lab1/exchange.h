@@ -4,8 +4,9 @@
 
 typedef struct{
 int fd; /*Descritor correspondente à porta série*/ 
-int status; /*TRANSMITTER | RECEIVER*/ 
-} serialport;
+int status; /*TRANSMITTER | RECEIVER*/
+FILE* file;
+} sfile;
 
 
 
@@ -19,9 +20,9 @@ char frame[255]; /*Trama*/
 } linklayer;
 
 
-
+char* searchcd(char* filename);
 void setup(int id, char* file, char* sport);
-
+FILE* getOpen(char* path);
 
 #define SENDER 1
 #define RECEIVER 2
