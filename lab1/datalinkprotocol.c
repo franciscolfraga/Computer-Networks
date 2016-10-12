@@ -3,7 +3,8 @@
 #include <unistd.h>
 #include <string.h>
 #include "settings.h"
-#include "exchange.h"
+#include "app.h"
+#include "linkdata.h"
 
 int main(){
 	clearscreen();
@@ -28,7 +29,8 @@ int main(){
 	sport=serial();
 	clearscreen();
 	printprofile(id,file,sport);
-	setup(id,file,sport);
-	//falta baudrate, nr de tentativas etc
+	setupapp(id,file,sport);
+	//falta baudrate, nr de tentativas etc, vou dar uns de default
+	setuplink(sport,appinfo.fd,id);
 	return 0;
 }

@@ -6,31 +6,30 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <string.h>
-#include "exchange.h"
-
-sfile aplication;
-linklayer protocol;
-void setup(int id, char* file, char* sport){
+#include "app.h"
+/* app layer, way how I access service*/
+void setupapp(int id, char* file, char* sport){
+    //perguntar ao prof disto de camadas
+    printf("\tSetting up application layer info...\n");
+    appinfo.fd = open(sport, O_RDWR | O_NOCTTY | O_NONBLOCK);
+    if (appinfo.fd <0) {perror(sport); exit(-1); }
 	/* open the device to be non-blocking (read will return immediatly) */
-    int filed = open(sport, O_RDWR | O_NOCTTY | O_NONBLOCK);
-    if (filed <0) {perror(sport); exit(-1); }
-    /*serial port setup*/
-    aplication.fd=filed;
-    aplication.status=id;
-    aplication.file=getOpen(file);
-    protocol.port=sport;
-    protocol.baudRate=4800;//change in main
-    protocol.timeout=1;//change in main
-    protocol.numTransmissions=3;//change in main opportunity to costumize
-    printf("\tALL SET!\n");
-	
+    appinfo.status=id;
+    appinfo.file=getOpen(file);
+    if(appinfo.file==NULL){
+        printf("\tI opened but can't find file, Exiting...\n");
+        exit(-1);
+    }
+    printf("\tAll set in application layer info!\n");
+	//get file size later?
+
 }
 
 FILE* getOpen(char* filename) {
     
     FILE* file;
     
-    if(aplication.status == SENDER){
+    if(appinfo.status == SENDER){
         file = fopen(filename, "rb");
         printf("\tOpened file (%s) as a sender with read parameters.\n", filename);
     }
@@ -60,7 +59,7 @@ FILE* getOpen(char* filename) {
     }
         
     if(file == NULL) {
-        printf("Error opening file requested (%s)\n", filename);
+        printf("\tError opening file requested (%s)\n", filename);
         return NULL;
     }
 
