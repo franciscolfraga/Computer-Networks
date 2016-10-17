@@ -33,10 +33,21 @@ unsigned int timeout; /*Valor do temporizador: 1 s*/
 
 unsigned int numTransmissions; /*Número de tentativas em caso de falha*/ 
 
-char frame[MAX_SIZE]; /*Trama*/ 
+char frame[FRAME_SIZE]; /*Trama*/ 
 
 }  linklayer;
+
+
+typedef struct {
+	unsigned char frame[FRAME_SIZE];
+	unsigned int size;
+	unsigned int sn;
+	unsigned int frametype;
+} Frame;
+
 linklayer linkinfo;
+
+int recmachine(int fd , int id);
 
 int setupTermios(int fd);
 

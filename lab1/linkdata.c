@@ -27,7 +27,7 @@ void setuplink(char* sport, int sportfd,int id){
 	printf("\tAll set in data link layer info!\n");
 	if(llopen(sportfd , id)<0){
 		printf("\n\tError setting up llopen!\n");
-		exit(-1)
+		exit(-1);
 	}
 
 }
@@ -44,7 +44,7 @@ int setupTermios(int fd){
     newtio.c_oflag = 0;
     newtio.c_lflag = ICANON;
     newtio.c_cc[VMIN] = 1;
-    newtio.c_cc[VTIME] = 0;
+    newtio.c_cc[VTIME] = 0.5;
     tcflush(fd , TCIFLUSH);
     tcsetattr(fd , TCSANOW,&newtio);
     printf("\tNew termios setup done!\n");
@@ -53,13 +53,23 @@ int setupTermios(int fd){
 }
 int llopen(int fd , int id){
 	int counter = 0;
+	unsigned char info;
+	printf("\tSetting up connection\n");
 		if(id == SENDER){
 			//add alarm later
 			while(counter < linkinfo.numTransmissions){
 				counter++;
+				sendcmd(fd,3,id); //SET
+				if(read(fd,&info,1)){
+					printf("\tConected with receiver!\n");
+				}
+
 			}
 		}
-	return -1;
+		else if(id == RECEIVER){
+			recmachine(fd , id);
+		}
+	return 1;
 }
 int sendcmd(int fd, int frametype, int id) {
 	unsigned char frame[FRAME_SIZE];
@@ -109,7 +119,7 @@ int sendcmd(int fd, int frametype, int id) {
 unsigned char getA(int type,int id){
 	switch(type){
 		case 1:
-			if(id==SENDER)
+			if(id == SENDER)
 				return A03;
 			else if(id==RECEIVER)
 				return A01;
@@ -126,6 +136,16 @@ unsigned char getA(int type,int id){
 				printf("\tERROR setting up frame\n");
 				exit(-1);
 			}
+	}
+	return 0;
+}
+
+int recmachine(int fd , int id){
+	unsigned char info;
+	if(read(fd,&info,1)){
+		write(fd,&info,1);
+		printf("\tConected with sender!\n");
+		return 1;
 	}
 	return 0;
 }
