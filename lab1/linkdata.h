@@ -15,11 +15,7 @@
 #define A01 0x01
 #define ESCAPE 0x7D
 
-#define FRAME_SIZE 5
-
-void setuplink(char* sport, int sportfd,int id);
-
-int llopen(int fd, int id);
+#define FRAME_SIZE 1024
 
 typedef struct { 
 
@@ -44,8 +40,13 @@ typedef struct {
 	unsigned int sn;
 	unsigned int frametype;
 } Frame;
-
+typedef enum { false, true } bool;
+bool received;
 linklayer linkinfo;
+
+void setuplink(char* sport, int sportfd,int id);
+
+int llopen(int fd, int id);
 
 int recmachine(int fd , int id);
 
@@ -54,5 +55,7 @@ int setupTermios(int fd);
 unsigned char getA(int type,int id);
 
 int sendcmd(int fd, int frametype, int id);
+
+unsigned char callRead(int fd);
 
 #endif // LINKDATA_H_
