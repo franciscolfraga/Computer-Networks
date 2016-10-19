@@ -13,11 +13,11 @@ void handler(int signal) {
 
 	//add statistics
 
-	printf("\t[Alarm] Timeout! Retrying...\n");
+	printf("\t[alarm] Timeout! Retrying...\n");
 }
 
 void setAlarm() {
-	printf("\t[Alarm] Setting up alarm...\n");
+	printf("\t[alarm] Setting up alarm...\n");
 	struct sigaction action;
 	action.sa_handler = handler;
 	sigemptyset(&action.sa_mask);

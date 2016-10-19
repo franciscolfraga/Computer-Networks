@@ -6,12 +6,13 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <string.h>
+#include <strings.h>
 #include "app.h"
 /* app layer, way how I access service*/
 void setupapp(int id, char* file, char* sport){
     //perguntar ao prof disto de camadas
     printf("\tSetting up application layer info...\n");
-    appinfo.fd = open(sport, O_RDWR | O_NOCTTY | O_NONBLOCK);
+    appinfo.fd = open(sport, O_RDWR | O_NOCTTY);
     if (appinfo.fd <0) {perror(sport); exit(-1); }
 	/* open the device to be non-blocking (read will return immediatly) */
     appinfo.status=id;

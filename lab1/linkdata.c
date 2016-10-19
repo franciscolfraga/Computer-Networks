@@ -20,13 +20,12 @@ void setuplink(char* sport, int sportfd,int id){
 		printf("\n\tError on setup of termios!\n");
 		exit(-1);
 	}
-
 	//ver boas práticas e mudar
 	//setup da struct
 	linkinfo.port = sport;
-	linkinfo.baudRate = 4800; //default minha (depois costumizar)
+	linkinfo.baudRate = B4800; //default minha (depois costumizar)
 	linkinfo.sequenceNumber = 0;
-	linkinfo.timeout = 1;
+	linkinfo.timeout = 3;
 	linkinfo.numTransmissions = 3;
 	printf("\tAll set in data link layer info!\n");
 	if(llopen(sportfd , id)<0){
@@ -62,25 +61,24 @@ int setupTermios(int fd){
 int llopen(int fd , int id){
 	int counter = 0;
 	received=false;
-	printf("\tSetting up connection\n");
-
+	printf("\tSetting up connection...\n");
 		if(id == SENDER){
 			//add alarm later
 			while(counter < linkinfo.numTransmissions && received==false){
 				if(	buzz==1 || counter == 0){
-					printf("\tNr.%d buzz now\n",counter);
 					buzz=0;
 					counter++;
-					setAlarm();
 					sendcmd(fd,3,id); //DISC
+					setAlarm();
 				}
 				//precisamos de checkar se a frame que recebemos é válida, fazer uma estrutura para a frame em si
 				if(recmachine(fd,id)){
 					received=true;
 					printf("\tExchanging data...\n");
+					break;
 				}
 			}
-			if(counter <= linkinfo.numTransmissions && received==true){
+			if(counter < linkinfo.numTransmissions && received==true){
 				stopAlarm();
 				printf("\tConnected with receiver!\n");
 			}
@@ -90,8 +88,16 @@ int llopen(int fd , int id){
 			}
 		}
 		else if(id == RECEIVER){
-			if(recmachine(fd , id))
+			if(recmachine(fd , id)){
+				//ver porque não posso mandar a que recebi
+				sendcmd(fd,3,id);
+				printf("\tExchanging data...\n");
 				printf("\tConnected with sender!\n");
+			}
+			else{
+				printf("\tCan't connect with sender!\n");
+				exit(-1);
+			}
 		}
 	return 1;
 }
@@ -136,7 +142,7 @@ int sendcmd(int fd, int frametype, int id) {
 		printf("\tERROR sending frame (size don't match)\n");
 		exit(-1);
 	}
-
+	printf("\tI wrote the I frame...\n");
 	return 0;
 }
 
@@ -151,6 +157,7 @@ unsigned char getA(int type,int id){
 				printf("\tERROR setting up frame\n");
 				exit(-1);
 			}
+			break;
 		case 2:
 			if(id==SENDER)
 				return A01;
@@ -160,65 +167,96 @@ unsigned char getA(int type,int id){
 				printf("\tERROR setting up frame\n");
 				exit(-1);
 			}
+			break;
 	}
 	return 0;
 }
 
 int recmachine(int fd , int id){
-	int frameloading = 0 , state = 0;
+	int frameloading=0 , state=0;
+	int c0=0,c1=0,c2=0,c3=0,c4=0;
 	unsigned char info;
-	//printf("\tEntering receive state machine...\n");
+	printf("\tI'm in state machine...\n");
 	//check prof state machine and update it (add prints), I will do the basics
 	while(frameloading!=1){
-		break;
 		switch(state){
 			case 0:
 				info=callRead(fd);
 				if(info==FLAG){
 					reader.frame[state]=info;
 					state++;
+					if(c0==0){
+						printf("\t[statemachine] Flag set!\n");
+						c0++;
+					}
 				}
-				else
-					state=0;
+				else{
+					if(id == RECEIVER)
+						state=0;
+					else if(id == SENDER){
+						return 0;
+					}
+				}
+				break;
 			case 1:
 				info=callRead(fd);
 				if(info==A01 || info==A03){
 					reader.frame[state]=info;
 					state++;
+					if(c1==0){
+						printf("\t[statemachine] A set!\n");
+						c1++;
+					}
+					break;
 				}
 			case 2:
 				info=callRead(fd);
 				if(info==CSET || info==CUA || info==CRR || info==CREJ || info==CDISC){
 					reader.frame[state]=info;
 					state++;
+					if(c2==0){
+						printf("\t[statemachine] C set!\n");
+						c2++;
+					}
+					break;
 				}
 			case 3:
 				info=callRead(fd);
 				if(info==(reader.frame[1]^reader.frame[2])){
 					reader.frame[state]=info;
 					state++;
+					if(c3==0){
+						printf("\t[statemachine] BCC set!\n");
+						c3++;
+					}
+					break;
 				}
 			case 4:
 				info=callRead(fd);
 				if(info==FLAG){
 					reader.frame[state]=info;
 					state++;
+					if(c4==0){
+						printf("\t[statemachine] Flag set!\n");
+						c4++;
+					}
 					reader.frame[state]='\0';
 					frameloading=1;
 					break;
 				}
 			default:
-				state=0;
+				return 0;
 		}
 	}
-	return 0;
+	return 1;
 }
 
 unsigned char callRead(int fd){
 	unsigned char info;
-	int res;
-	res=read(fd,&info,1);
-	if(res>1)
-		printf("\tError, (corrupted info received) can't continue\n");
+	int res=0;
+	while(res==0){
+		res=read(fd,&info,1);
+	}
+	printf("\tGot info!\n");
 	return info;
 }
