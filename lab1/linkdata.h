@@ -44,7 +44,7 @@ typedef enum { false, true } bool;
 bool received;
 linklayer linkinfo;
 
-void setuplink(char* sport, int sportfd,int id);
+void setuplink(char* sport,int id);
 
 int llopen(int fd, int id);
 
@@ -57,5 +57,7 @@ unsigned char getA(int type,int id);
 int sendcmd(int fd, int frametype, int id);
 
 unsigned char callRead(int fd);
+
+int openport(char* sport);
 
 #endif // LINKDATA_H_

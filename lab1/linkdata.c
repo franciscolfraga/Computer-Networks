@@ -9,12 +9,15 @@
 
 #include "linkdata.h"
 #include "alarm.h"
+#include "app.h"
 struct termios oldtio,newtio;
 Frame reader;
 
 
-void setuplink(char* sport, int sportfd,int id){
+void setuplink(char* sport,int id){
 	//new termios
+	int sportfd;
+	sportfd=openport(sport);
 	printf("\tSetting up data link layer info...\n");
 	if(setupTermios(sportfd)<0){
 		printf("\n\tError on setup of termios!\n");
@@ -259,4 +262,12 @@ unsigned char callRead(int fd){
 	}
 	printf("\tGot info!\n");
 	return info;
+}
+
+int openport(char* sport){
+	int fd;
+    printf("\tOpening serial port..\n");
+   	fd = open(sport, O_RDWR | O_NOCTTY);
+    if (fd <0) {perror(sport); exit(-1); }
+    return fd;
 }

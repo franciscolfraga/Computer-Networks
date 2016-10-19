@@ -3,6 +3,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <dirent.h>
+#include "settings.h"
+#include "app.h"
 
 int ID(){
 	printf("\tPlease help me to identify you:\n\n");
@@ -89,3 +91,58 @@ char* serial(){
 void clearscreen() {
 	printf("\033[2J");
 } 
+FILE* getOpen(char* filename) {
+    
+    FILE* file;
+    
+    if(appinfo.status == SENDER){
+        file = fopen(filename, "rb");
+        printf("\tOpened file (%s) as a sender with read parameters.\n", filename);
+    }
+    else{
+        printf("\tSearching this file in current directory...\n");
+        if(strcmp(searchcd(filename),"ok")!=0){
+            printf("\tFile with name (%s) found in current directory!\n", filename);
+            printf("\tDo you wish to continue? (1 for Yes, 2 for NO!) ");
+            int answer=0;
+            scanf("%d",&answer);
+            while(answer!=1 && answer!=2){
+                printf("\n\tError, you can only answer 1 or 2 ");
+                scanf("%d",&answer);
+            }
+            switch(answer){
+                case 1: 
+                    printf("\n");
+                    break;
+                case 2:
+                    printf("\n\tOK I stopped!\n");
+                    exit(-1);
+            }
+        }
+        //adicionar ver se existe um ficheiro com o mesmo nome neste diretorio
+        file = fopen(filename, "wb");
+        printf("\tCreated file (%s) as a receiver with write parameters.\n", filename);
+    }
+        
+    if(file == NULL) {
+        printf("\tError opening file requested (%s)\n", filename);
+        return NULL;
+    }
+
+    return file;    
+}
+
+char* searchcd(char* filename){
+    DIR *d;
+    struct dirent *dir;
+    d = opendir(".");
+    if (d){
+        while ((dir = readdir(d)) != NULL){
+            if(strcmp(filename,dir->d_name)==0){
+                return dir->d_name;
+            }
+        }
+    closedir(d);
+    }
+    return "ok";
+}

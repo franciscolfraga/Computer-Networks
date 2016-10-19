@@ -9,9 +9,6 @@ FILE* file;
 } sfile;
 sfile appinfo;
 
-char* searchcd(char* filename);
-void setupapp(int id, char* file, char* sport);
-FILE* getOpen(char* path);
 
 #define SENDER 1
 #define RECEIVER 2

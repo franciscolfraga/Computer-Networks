@@ -13,6 +13,7 @@ int main(){
 	int id= ID();
 	char* file=NULL;
 	char* sport=NULL;
+	appinfo.status=id;
 	clearscreen();
 	printprofile(id,file,sport);
 	switch(id){
@@ -29,8 +30,12 @@ int main(){
 	sport=serial();
 	clearscreen();
 	printprofile(id,file,sport);
-	setupapp(id,file,sport);
+	appinfo.file=getOpen(file);
+	if(appinfo.file==NULL){
+        printf("\tI opened but can't find file, Exiting...\n");
+        exit(-1);
+    }
 	//falta baudrate, nr de tentativas etc, vou dar uns de default
-	setuplink(sport,appinfo.fd,id);
+	setuplink(sport,id);
 	return 0;
 }
