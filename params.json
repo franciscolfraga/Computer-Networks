@@ -1,0 +1,6 @@
+{
+  "name": "Rcom",
+  "tagline": "",
+  "body": "RCOM-FEUP\r\n\r\nThis work was done in the course of Computer Networks in FEUP. It has a Data Link Protocol that exchanges files trough serial ports in linux environments (lab1).",
+  "note": "Don't delete this file! It's used internally to help with page regeneration."
+}
