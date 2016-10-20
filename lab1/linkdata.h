@@ -16,6 +16,7 @@
 #define ESCAPE 0x7D
 
 #define FRAME_SIZE 1024
+#define DATA_FRAME_SIZE 6
 
 typedef struct { 
 
@@ -30,6 +31,8 @@ unsigned int timeout; /*Valor do temporizador: 1 s*/
 unsigned int numTransmissions; /*Número de tentativas em caso de falha*/ 
 
 char frame[FRAME_SIZE]; /*Trama*/ 
+
+unsigned int sn;
 
 }  linklayer;
 
@@ -48,7 +51,7 @@ void setuplink(char* sport,int id);
 
 int llopen(int fd, int id);
 
-int recmachine(int fd , int id);
+int rcvmachine(int fd , int id);
 
 int setupTermios(int fd);
 
@@ -59,5 +62,11 @@ int sendcmd(int fd, int frametype, int id);
 unsigned char callRead(int fd);
 
 int openport(char* sport);
+
+int llwrite(int fd, unsigned char* buffer, int length);
+
+int sendDataFrame(int fd, unsigned char* data, unsigned int size);
+
+unsigned char getBCC2(unsigned char* data, unsigned int size);
 
 #endif // LINKDATA_H_

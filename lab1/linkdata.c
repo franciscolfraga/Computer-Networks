@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <sys/signal.h>
 #include <sys/types.h>
+#include <string.h>
 #include <strings.h>
 
 #include "linkdata.h"
@@ -29,10 +30,11 @@ void setuplink(char* sport,int id){
 	linkinfo.baudRate = B4800; //default minha (depois costumizar)
 	linkinfo.sequenceNumber = 0;
 	linkinfo.timeout = 3;
+	linkinfo.sn=0;
 	linkinfo.numTransmissions = 3;
 	printf("\tAll set in data link layer info!\n");
-	if(llopen(sportfd , id)<0){
-		printf("\n\tError setting up llopen!\n");
+	if(llopen(sportfd , id)!=sportfd){
+		printf("\n\tError setting up llopen! Bad file descriptor received\n");
 		exit(-1);
 	}
 
@@ -66,16 +68,15 @@ int llopen(int fd , int id){
 	received=false;
 	printf("\tSetting up connection...\n");
 		if(id == SENDER){
-			//add alarm later
 			while(counter < linkinfo.numTransmissions && received==false){
 				if(	buzz==1 || counter == 0){
 					buzz=0;
 					counter++;
-					sendcmd(fd,3,id); //DISC
+					sendcmd(fd,1,id); //SET
 					setAlarm();
 				}
 				//precisamos de checkar se a frame que recebemos é válida, fazer uma estrutura para a frame em si
-				if(recmachine(fd,id)){
+				if(rcvmachine(fd,id)){
 					received=true;
 					printf("\tExchanging data...\n");
 					break;
@@ -87,23 +88,47 @@ int llopen(int fd , int id){
 			}
 			else{
 				printf("\tError, reached max retries!\n");
-				exit(-1);
+				return -1;
 			}
 		}
 		else if(id == RECEIVER){
-			if(recmachine(fd , id)){
+			if(rcvmachine(fd , id)){
 				//ver porque não posso mandar a que recebi
-				sendcmd(fd,3,id);
+				sendcmd(fd,2,id); //UA
 				printf("\tExchanging data...\n");
 				printf("\tConnected with sender!\n");
 			}
 			else{
 				printf("\tCan't connect with sender!\n");
-				exit(-1);
+				return -1;
 			}
 		}
-	return 1;
+	return fd;
 }
+
+
+int llwrite(int fd, unsigned char* buffer, int length) {
+	int counter = 0;
+
+	while(counter < linkinfo.numTransmissions) {
+		if (counter == 0 || buzz) {
+			buzz = 0;
+			sendDataFrame(fd, buffer, length);
+			counter++;
+
+			setAlarm();
+		}
+
+		//receivedFrame = receiveFrame(al->fd); , preciso de criar a função
+
+		//falta llwrite
+
+	}
+
+	return 0;
+}
+
+
 int sendcmd(int fd, int frametype, int id) {
 	unsigned char frame[FRAME_SIZE];
 
@@ -145,7 +170,7 @@ int sendcmd(int fd, int frametype, int id) {
 		printf("\tERROR sending frame (size don't match)\n");
 		exit(-1);
 	}
-	printf("\tI wrote the I frame...\n");
+	printf("\tI wrote the S frame...\n");
 	return 0;
 }
 
@@ -175,16 +200,16 @@ unsigned char getA(int type,int id){
 	return 0;
 }
 
-int recmachine(int fd , int id){
+int rcvmachine(int fd , int id){
 	int frameloading=0 , state=0;
 	int c0=0,c1=0,c2=0,c3=0,c4=0;
 	unsigned char info;
 	printf("\tI'm in state machine...\n");
-	//check prof state machine and update it (add prints), I will do the basics
+	//state machine done
 	while(frameloading!=1){
+		info=callRead(fd);
 		switch(state){
 			case 0:
-				info=callRead(fd);
 				if(info==FLAG){
 					reader.frame[state]=info;
 					state++;
@@ -202,7 +227,6 @@ int recmachine(int fd , int id){
 				}
 				break;
 			case 1:
-				info=callRead(fd);
 				if(info==A01 || info==A03){
 					reader.frame[state]=info;
 					state++;
@@ -210,10 +234,12 @@ int recmachine(int fd , int id){
 						printf("\t[statemachine] A set!\n");
 						c1++;
 					}
-					break;
 				}
+				else if(info!=FLAG){
+					state=0;
+				}
+				break;
 			case 2:
-				info=callRead(fd);
 				if(info==CSET || info==CUA || info==CRR || info==CREJ || info==CDISC){
 					reader.frame[state]=info;
 					state++;
@@ -221,10 +247,15 @@ int recmachine(int fd , int id){
 						printf("\t[statemachine] C set!\n");
 						c2++;
 					}
-					break;
 				}
+				else if(info==A01 || info==A03){
+					state=2;
+				}
+				else{
+					state=0;
+				}
+				break;
 			case 3:
-				info=callRead(fd);
 				if(info==(reader.frame[1]^reader.frame[2])){
 					reader.frame[state]=info;
 					state++;
@@ -232,10 +263,18 @@ int recmachine(int fd , int id){
 						printf("\t[statemachine] BCC set!\n");
 						c3++;
 					}
-					break;
 				}
+				else if(info==A01 || info==A03){
+					state=2;
+				}
+				else if(info==CSET || info==CUA || info==CRR || info==CREJ || info==CDISC){
+					state=3;
+				}
+				else{
+					state=0;
+				}
+				break;
 			case 4:
-				info=callRead(fd);
 				if(info==FLAG){
 					reader.frame[state]=info;
 					state++;
@@ -245,8 +284,17 @@ int recmachine(int fd , int id){
 					}
 					reader.frame[state]='\0';
 					frameloading=1;
-					break;
 				}
+				else if(info==A01 || info==A03){
+					state=2;
+				}
+				else if(info==CSET || info==CUA || info==CRR || info==CREJ || info==CDISC){
+					state=3;
+				}
+				else if(info==(reader.frame[1]^reader.frame[2])){
+					state=4;
+				}
+				break;
 			default:
 				return 0;
 		}
@@ -270,4 +318,36 @@ int openport(char* sport){
    	fd = open(sport, O_RDWR | O_NOCTTY);
     if (fd <0) {perror(sport); exit(-1); }
     return fd;
+}
+//get why
+int sendDataFrame(int fd, unsigned char* data, unsigned int size) {
+	Frame df;
+	df.size =  size + DATA_FRAME_SIZE;
+	
+	df.frame[0] = FLAG;
+	df.frame[1] = A03;
+	df.frame[2] = linkinfo.sn << 5;
+	df.frame[3] = df.frame[1] ^ df.frame[2];
+	memcpy(&df.frame[4], data, size);
+	df.frame[4 + size] = getBCC2(data, size);
+	df.frame[5 + size] = FLAG;
+
+	//df = stuff(df); ver stuff
+	
+	if (write(fd, df.frame, df.size) != df.size) {
+		printf("\tERROR sending data frame\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+unsigned char getBCC2(unsigned char* data, unsigned int size) {
+	unsigned char BCC = 0;
+
+	int i;
+	for (i = 0; i < size; i++)
+		BCC ^= data[i];
+
+	return BCC;
 }
