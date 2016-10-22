@@ -70,5 +70,6 @@ int sendDataFrame(int fd, unsigned char* data, unsigned int size);
 unsigned char getBCC2(unsigned char* data, unsigned int size);
 
 int checkcmd(unsigned char cmd);
+Frame stuff(Frame df);
 
 #endif // LINKDATA_H_

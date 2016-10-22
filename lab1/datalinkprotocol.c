@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include "settings.h"
 #include "app.h"
 #include "linkdata.h"
 
@@ -35,6 +34,7 @@ int main(){
         printf("\tI opened but can't find file, Exiting...\n");
         exit(-1);
     }
+    startapp(file);
 	//falta baudrate, nr de tentativas etc, vou dar uns de default
 	setuplink(sport,id);
 	return 0;

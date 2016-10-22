@@ -7,13 +7,11 @@
 #include <sys/types.h>
 #include <string.h>
 #include <strings.h>
-
 #include "linkdata.h"
 #include "alarm.h"
 #include "app.h"
 struct termios oldtio,newtio;
 Frame reader;
-
 
 void setuplink(char* sport,int id){
 	//new termios
@@ -361,7 +359,7 @@ int sendDataFrame(int fd, unsigned char* data, unsigned int size) {
 	df.frame[4 + size] = getBCC2(data, size);
 	df.frame[5 + size] = FLAG;
 
-	//df = stuff(df); ver stuff
+	df = stuff(df);
 	
 	if (write(fd, df.frame, df.size) != df.size) {
 		printf("\tERROR sending data frame\n");
@@ -372,12 +370,11 @@ int sendDataFrame(int fd, unsigned char* data, unsigned int size) {
 }
 
 unsigned char getBCC2(unsigned char* data, unsigned int size) {
-	unsigned char BCC = 0;
-
-	int i;
-	for (i = 0; i < size; i++)
-		BCC ^= data[i];
-
+	unsigned char BCC;
+	int c;
+	for (c = 0; c < size; c++){
+		BCC ^= data[c];
+}
 	return BCC;
 }
 //ver boas práticas aqui
@@ -402,4 +399,32 @@ int checkcmd(unsigned char cmd){
 	}
 	else
 		return 0;
+}
+
+Frame stuff(Frame df) {
+	Frame stuffed;
+	unsigned int newSize = df.size;
+
+	int i;
+	for (i = 1; i < (df.size - 1); i++) {
+		if (df.frame[i] == FLAG || df.frame[i] == ESCAPE)
+			newSize++;
+	}
+	//FLAG
+	stuffed.frame[0] = df.frame[0];
+	int j = 1;
+	for (i = 1; i < (df.size - 1); i++) {
+		if (df.frame[i] == FLAG || df.frame[i] == ESCAPE) {
+			stuffed.frame[j] = ESCAPE;
+			stuffed.frame[++j] = df.frame[i] ^ 0x20;
+		}
+		else
+			stuffed.frame[j] = df.frame[i];
+		j++;
+	}
+	
+	stuffed.frame[j] = df.frame[i];
+	stuffed.size = newSize;
+	
+	return stuffed;
 }
