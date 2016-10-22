@@ -32,7 +32,7 @@ void setuplink(char* sport,int id){
 	linkinfo.numTransmissions = 3;
 	printf("\tAll set in data link layer info!\n");
 	if(llopen(sportfd , id)!=sportfd){
-		printf("\n\tError setting up llopen! Bad file descriptor received\n");
+		printf("\n\tError setting up llopen()! Bad file descriptor received\n");
 		exit(-1);
 	}
 
@@ -155,6 +155,17 @@ int llwrite(int fd, unsigned char* buffer, int length) {
 	return dataframesize;
 }
 
+int llread(int fd, unsigned char* buffer) {
+	int reading=1,size;
+	while(reading){
+		size=rcvmachine(fd, RECEIVER);
+	}
+
+	//ver read
+	return size;
+}
+
+
 
 int sendcmd(int fd, int frametype, int id) {
 	unsigned char frame[FRAME_SIZE];
@@ -229,7 +240,8 @@ unsigned char getA(int type,int id){
 
 int rcvmachine(int fd , int id){
 	int frameloading=0 , state=0;
-	int c0=0,c1=0,c2=0,c3=0,c4=0;
+	int c0=0,c1=0,c2=0,c3=0,c4=0,c=0;
+	bool iframe=false;
 	unsigned char info;
 	printf("\tI'm in state machine...\n");
 	//state machine done
@@ -240,14 +252,17 @@ int rcvmachine(int fd , int id){
 				if(info==FLAG){
 					reader.frame[state]=info;
 					state++;
+					c++;
 					if(c0==0){
 						printf("\t[statemachine] Flag set!\n");
 						c0++;
 					}
 				}
 				else{
-					if(id == RECEIVER)
+					if(id == RECEIVER){
 						state=0;
+						c=state;
+					}
 					else if(id == SENDER){
 						return 0;
 					}
@@ -257,6 +272,7 @@ int rcvmachine(int fd , int id){
 				if(info==A01 || info==A03){
 					reader.frame[state]=info;
 					state++;
+					c++;
 					if(c1==0){
 						printf("\t[statemachine] A set!\n");
 						c1++;
@@ -264,12 +280,14 @@ int rcvmachine(int fd , int id){
 				}
 				else if(info!=FLAG){
 					state=0;
+					c=state;
 				}
 				break;
 			case 2:
 				if(info==CSET || info==CUA || info==CRR || info==CREJ || info==CDISC){
 					reader.frame[state]=info;
 					state++;
+					c++;
 					if(c2==0){
 						printf("\t[statemachine] C set!\n");
 						c2++;
@@ -277,15 +295,18 @@ int rcvmachine(int fd , int id){
 				}
 				else if(info==A01 || info==A03){
 					state=2;
+					c=state;
 				}
 				else{
 					state=0;
+					c=state;
 				}
 				break;
 			case 3:
 				if(info==(reader.frame[1]^reader.frame[2])){
 					reader.frame[state]=info;
 					state++;
+					c++;
 					if(c3==0){
 						printf("\t[statemachine] BCC set!\n");
 						c3++;
@@ -293,24 +314,30 @@ int rcvmachine(int fd , int id){
 				}
 				else if(info==A01 || info==A03){
 					state=2;
+					c=state;
 				}
 				else if(info==CSET || info==CUA || info==CRR || info==CREJ || info==CDISC){
 					state=3;
+					c=state;
 				}
 				else{
 					state=0;
+					c=state;
 				}
 				break;
 			case 4:
 				if(info==FLAG){
-					reader.frame[state]=info;
-					state++;
+					reader.frame[c]=info;
 					if(c4==0){
 						printf("\t[statemachine] Flag set!\n");
 						c4++;
 					}
-					reader.frame[state]='\0';
+					if(c > 5){
+						iframe=true;
+					}
 					frameloading=1;
+					state++;
+					c++;
 				}
 				else if(info==A01 || info==A03){
 					state=2;
@@ -321,12 +348,26 @@ int rcvmachine(int fd , int id){
 				else if(info==(reader.frame[1]^reader.frame[2])){
 					state=4;
 				}
+				else{
+					//iframe
+					reader.frame[c]=info;
+					c++;
+				}
 				break;
 			default:
 				return 0;
 		}
 	}
-	return 1;
+	if(iframe){
+		reader.size=c;
+		reader.frametype=6; //data
+		reader=destuff(reader);
+		//check bcc's later
+	}
+	else{
+		reader.size=state;
+	}
+	return reader.size;
 }
 
 unsigned char callRead(int fd){
@@ -427,4 +468,21 @@ Frame stuff(Frame df) {
 	stuffed.size = newSize;
 	
 	return stuffed;
+}
+
+Frame destuff(Frame df) {
+	Frame destuffed;
+	destuffed.sn = df.sn;
+	destuffed.frametype = df.frametype;
+	int j = 0;
+	int i;
+	for (i = 0; i < df.size; i++) {
+		if (df.frame[i] == ESCAPE)
+			destuffed.frame[j] = df.frame[++i] ^ 0x20;
+		else
+			destuffed.frame[j] = df.frame[i];
+		j++;
+	}
+	destuffed.size = j;
+	return destuffed;
 }

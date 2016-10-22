@@ -71,5 +71,6 @@ unsigned char getBCC2(unsigned char* data, unsigned int size);
 
 int checkcmd(unsigned char cmd);
 Frame stuff(Frame df);
+Frame destuff(Frame df);
 
 #endif // LINKDATA_H_
