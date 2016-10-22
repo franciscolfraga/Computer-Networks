@@ -78,7 +78,14 @@ int llopen(int fd , int id){
 				//precisamos de checkar se a frame que recebemos é válida, fazer uma estrutura para a frame em si
 				if(rcvmachine(fd,id)){
 					received=true;
-					printf("\tExchanging data...\n");
+					if(checkcmd(reader.frame[2])==2){
+						printf("\tGot the UA frame!\n");
+						printf("\tExchanging data...\n");
+					}
+					else{
+						printf("\tError, couldn't check command...\n");
+						exit(-1);
+					}
 					break;
 				}
 			}
@@ -93,10 +100,18 @@ int llopen(int fd , int id){
 		}
 		else if(id == RECEIVER){
 			if(rcvmachine(fd , id)){
-				//ver porque não posso mandar a que recebi
-				sendcmd(fd,2,id); //UA
-				printf("\tExchanging data...\n");
-				printf("\tConnected with sender!\n");
+				
+				if(checkcmd(reader.frame[2])==1){
+					printf("\tGot the SET frame!\n");
+					sendcmd(fd,2,id); //UA
+					printf("\tExchanging data...\n");
+					printf("\tConnected with sender!\n");
+				}
+				else{
+					printf("\tError, couldn't check command...\n");
+					exit(-1);
+				}
+
 			}
 			else{
 				printf("\tCan't connect with sender!\n");
@@ -108,24 +123,38 @@ int llopen(int fd , int id){
 
 
 int llwrite(int fd, unsigned char* buffer, int length) {
-	int counter = 0;
-
+	int counter = 0, dataframesize=0;
 	while(counter < linkinfo.numTransmissions) {
 		if (counter == 0 || buzz) {
 			buzz = 0;
-			sendDataFrame(fd, buffer, length);
+			dataframesize=sendDataFrame(fd, buffer, length);
 			counter++;
 
 			setAlarm();
 		}
+		//make return unsigned char
+		rcvmachine(fd,SENDER);
 
-		//receivedFrame = receiveFrame(al->fd); , preciso de criar a função
+		if(checkcmd(reader.frame[2])==4){
+			counter = 0;
+			stopAlarm();
+		}
+		else if(checkcmd(reader.frame[2])==3){
+			stopAlarm();
+			counter--;
+			break;
+		}
 
 		//falta llwrite
 
 	}
+	if(counter >= linkinfo.numTransmissions){
+		printf("Could not send frame: maximum number of retries reached\n");
+		stopAlarm();
+		return -1;
+	}
 
-	return 0;
+	return dataframesize;
 }
 
 
@@ -339,7 +368,7 @@ int sendDataFrame(int fd, unsigned char* data, unsigned int size) {
 		return -1;
 	}
 
-	return 0;
+	return df.size;
 }
 
 unsigned char getBCC2(unsigned char* data, unsigned int size) {
@@ -350,4 +379,27 @@ unsigned char getBCC2(unsigned char* data, unsigned int size) {
 		BCC ^= data[i];
 
 	return BCC;
+}
+//ver boas práticas aqui
+int checkcmd(unsigned char cmd){
+	if(cmd==CSET)
+		return 1;
+
+	else if(cmd==CUA){
+		return 2;
+	}
+
+	else if(cmd==CRR){
+		return 3;
+	}
+
+	else if(cmd==CREJ){
+		return 4;
+	}
+
+	else if(cmd==CDISC){
+		return 5;
+	}
+	else
+		return 0;
 }

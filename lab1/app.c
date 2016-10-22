@@ -23,4 +23,5 @@ void send(char* file_name){
     appinfo.file_size = st.st_size;
 }
 void rcv(){
+    
 }
