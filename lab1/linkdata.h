@@ -63,6 +63,8 @@ unsigned char callRead(int fd);
 
 int openport(char* sport);
 
+int closeport(int fd);
+
 int llwrite(int fd, unsigned char* buffer, int length);
 
 int sendDataFrame(int fd, unsigned char* data, unsigned int size);
@@ -70,7 +72,9 @@ int sendDataFrame(int fd, unsigned char* data, unsigned int size);
 unsigned char getBCC2(unsigned char* data, unsigned int size);
 
 int checkcmd(unsigned char cmd);
+
 Frame stuff(Frame df);
+
 Frame destuff(Frame df);
 
 #endif // LINKDATA_H_

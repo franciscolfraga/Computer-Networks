@@ -32,7 +32,7 @@ void setuplink(char* sport,int id){
 	linkinfo.numTransmissions = 3;
 	printf("\tAll set in data link layer info!\n");
 	if(llopen(sportfd , id)!=sportfd){
-		printf("\n\tError setting up llopen()! Bad file descriptor received\n");
+		printf("\n\tError setting up llopen()! Bad file descriptor received.\n");
 		exit(-1);
 	}
 
@@ -73,7 +73,6 @@ int llopen(int fd , int id){
 					sendcmd(fd,1,id); //SET
 					setAlarm();
 				}
-				//precisamos de checkar se a frame que recebemos é válida, fazer uma estrutura para a frame em si
 				if(rcvmachine(fd,id)){
 					received=true;
 					if(checkcmd(reader.frame[2])==2){
@@ -119,6 +118,64 @@ int llopen(int fd , int id){
 	return fd;
 }
 
+
+int llclose(int fd , int id){
+	int counter = 0;
+	received=false;
+	printf("\tClosing connection...\n");
+		if(id == SENDER){
+			while(counter < linkinfo.numTransmissions && received==false){
+				if(	buzz==1 || counter == 0){
+					buzz=0;
+					counter++;
+					sendcmd(fd,3,id); //DISC
+					setAlarm();
+				}
+				if(rcvmachine(fd,id)){
+					received=true;
+					if(checkcmd(reader.frame[2])==3){
+						printf("\tGot the DISC frame!\n");
+						printf("\tExchanging data...\n");
+					}
+					else{
+						printf("\tError, couldn't check command...\n");
+						exit(-1);
+					}
+					break;
+				}
+			}
+			if(counter < linkinfo.numTransmissions && received==true){
+				stopAlarm();
+				printf("\tConnection closed!\n");
+			}
+			else{
+				printf("\tError, reached max retries!\n");
+				return -1;
+			}
+		}
+		else if(id == RECEIVER){
+			if(rcvmachine(fd , id)){
+				
+				if(checkcmd(reader.frame[2])==3){
+					printf("\tGot the DISC frame!\n");
+					sendcmd(fd,3,id); //DISC
+					printf("\tExchanging data...\n");
+					printf("\tConnection closed!\n");
+				}
+				else{
+					printf("\tError, couldn't check command...\n");
+					exit(-1);
+				}
+
+			}
+			else{
+				printf("\tCan't connect with sender!\n");
+				return -1;
+			}
+		}
+		closeport(fd);
+	return fd;
+}
 
 int llwrite(int fd, unsigned char* buffer, int length) {
 	int counter = 0, dataframesize=0;
@@ -387,7 +444,18 @@ int openport(char* sport){
     if (fd <0) {perror(sport); exit(-1); }
     return fd;
 }
-//get why
+int closeport(int fd) {
+	// set old settings
+	if (tcsetattr(fd, TCSANOW, &oldtio) < 0) {
+		printf("\tError closing serial port, could not set old termios...\n");
+		return -1;
+	}
+
+	if(close(fd)==0)
+		printf("\tSerial Port closed sucessfuly!\n");
+
+	return 0;
+}
 int sendDataFrame(int fd, unsigned char* data, unsigned int size) {
 	Frame df;
 	df.size =  size + DATA_FRAME_SIZE;
@@ -418,7 +486,6 @@ unsigned char getBCC2(unsigned char* data, unsigned int size) {
 }
 	return BCC;
 }
-//ver boas práticas aqui
 int checkcmd(unsigned char cmd){
 	if(cmd==CSET)
 		return 1;
