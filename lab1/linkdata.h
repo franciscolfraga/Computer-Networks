@@ -46,7 +46,7 @@ typedef struct {
 typedef enum { false, true } bool;
 bool received;
 linklayer linkinfo;
-
+extern Frame reader;
 void setuplink(char* sport,int id);
 
 int llopen(int fd, int id);
@@ -66,6 +66,8 @@ int openport(char* sport);
 int closeport(int fd);
 
 int llwrite(int fd, unsigned char* buffer, int length);
+
+int llread(int fd, unsigned char* buffer);
 
 int sendDataFrame(int fd, unsigned char* data, unsigned int size);
 

@@ -34,8 +34,9 @@ int main(){
         printf("\tI opened but can't find file, Exiting...\n");
         exit(-1);
     }
-    startapp(file);
 	//falta baudrate, nr de tentativas etc, vou dar uns de default
 	setuplink(sport,id);
+
+	startapp(file);
 	return 0;
 }

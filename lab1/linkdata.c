@@ -17,6 +17,7 @@ void setuplink(char* sport,int id){
 	//new termios
 	int sportfd;
 	sportfd=openport(sport);
+	appinfo.fd=sportfd;
 	printf("\tSetting up data link layer info...\n");
 	if(setupTermios(sportfd)<0){
 		printf("\n\tError on setup of termios!\n");
@@ -190,11 +191,11 @@ int llwrite(int fd, unsigned char* buffer, int length) {
 		//make return unsigned char
 		rcvmachine(fd,SENDER);
 
-		if(checkcmd(reader.frame[2])==4){
+		if(checkcmd(reader.frame[2])==5){
 			counter = 0;
 			stopAlarm();
 		}
-		else if(checkcmd(reader.frame[2])==3){
+		else if(checkcmd(reader.frame[2])==4){
 			stopAlarm();
 			counter--;
 			break;
@@ -204,7 +205,8 @@ int llwrite(int fd, unsigned char* buffer, int length) {
 
 	}
 	if(counter >= linkinfo.numTransmissions){
-		printf("Could not send frame: maximum number of retries reached\n");
+		printf("\tCould not send frame: maximum number of retries reached\n");
+		sendcmd(fd,3,SENDER);
 		stopAlarm();
 		return -1;
 	}
@@ -216,8 +218,17 @@ int llread(int fd, unsigned char* buffer) {
 	int reading=1,size;
 	while(reading){
 		size=rcvmachine(fd, RECEIVER);
+		if(checkcmd(reader.frame[2])==3){
+			printf("\tDisconnected!\n");
+			exit(-1);
+		}
+		else{
+			int dataSize = reader.size - DATA_FRAME_SIZE;
+			buffer = malloc(dataSize);
+			memcpy(buffer, &reader.frame[4], dataSize);
+		}
 	}
-
+	
 	//ver read
 	return size;
 }
@@ -249,7 +260,20 @@ int sendcmd(int fd, int frametype, int id) {
 			frame[2] = CDISC;
 			frame[3] = frame[1] ^ frame[2];
 			break;
-		//ver rr e rej
+		case 4:
+		//DISC
+			frame[1] = getA(2,id);
+			frame[2] = CRR;
+			frame[2] |= (linkinfo.sn << 5);
+			frame[3] = frame[1] ^ frame[2];
+			break;
+		case 5:
+		//DISC
+			frame[1] = getA(2,id);
+			frame[2] = CREJ;
+			frame[2] |= (linkinfo.sn << 5);
+			frame[3] = frame[1] ^ frame[2];
+			break;
 		default:
 			printf("\tERROR sending frame (unexpected frame)\n");
 			exit(-1);
@@ -300,7 +324,6 @@ int rcvmachine(int fd , int id){
 	int c0=0,c1=0,c2=0,c3=0,c4=0,c=0;
 	bool iframe=false;
 	unsigned char info;
-	printf("\tI'm in state machine...\n");
 	//state machine done
 	while(frameloading!=1){
 		info=callRead(fd);
@@ -433,7 +456,6 @@ unsigned char callRead(int fd){
 	while(res==0){
 		res=read(fd,&info,1);
 	}
-	printf("\tGot info!\n");
 	return info;
 }
 
@@ -469,11 +491,11 @@ int sendDataFrame(int fd, unsigned char* data, unsigned int size) {
 	df.frame[5 + size] = FLAG;
 
 	df = stuff(df);
-	
-	if (write(fd, df.frame, df.size) != df.size) {
+	printf("\tSending info with size %d in frame of size %d\n",size, df.size);
+	/*if (write(fd, df.frame, df.size) != df.size) {
 		printf("\tERROR sending data frame\n");
 		return -1;
-	}
+	}*/
 
 	return df.size;
 }
@@ -495,15 +517,15 @@ int checkcmd(unsigned char cmd){
 	}
 
 	else if(cmd==CRR){
-		return 3;
-	}
-
-	else if(cmd==CREJ){
 		return 4;
 	}
 
-	else if(cmd==CDISC){
+	else if(cmd==CREJ){
 		return 5;
+	}
+
+	else if(cmd==CDISC){
+		return 3;
 	}
 	else
 		return 0;

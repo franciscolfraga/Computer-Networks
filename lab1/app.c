@@ -4,6 +4,7 @@
 #include <string.h>
 #include <dirent.h>
 #include "app.h"
+#include "linkdata.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -20,9 +21,30 @@ void send(char* file_name){
     struct stat st;
     stat(file_name, &st);
     appinfo.file_size = st.st_size;
+    char sizeString[16];
+	sprintf(sizeString, "%d", appinfo.file_size);
+	int size;
+	size = 5 + sizeof(sizeString);
+	unsigned char sendfile[size];
+	int i=0,acumulator=0;
+	for(i = 0; i < strlen(sizeString); i++) {
+		sendfile[acumulator] = sizeString[i];
+		acumulator++;;
+	}
+
+    llwrite(appinfo.fd,sendfile,acumulator);
 }
 void rcv(){
-    
+	Frame received;
+    llread(appinfo.fd, received.frame);
+    char* fileSizeStr;
+    int acumulator=0, i, fileSizeLength=received.frame[0]-'0';
+    for(i = 0; i < fileSizeLength; i++) {
+		fileSizeStr[i] =received.frame[acumulator];
+		acumulator++;
+}
+	int filesize=atoi(fileSizeStr);
+	printf("Got %d of size\n",filesize);
 }
 
 int ID(){
