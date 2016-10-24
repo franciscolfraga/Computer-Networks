@@ -1,42 +1,68 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
-#include "app.h"
-#include "linkdata.h"
+#include <strings.h>
 
-int main(){
-	clearscreen();
+#include "link_layer.h"
+#include "app_layer.h"
+
+
+int main()
+{
+    clrscr();
+
 	printf("\tThis file would run in the 2 machines (sender and receiver).\n");
-	printf("\tLet's set you up.\n");
-	int id= ID();
-	char* file=NULL;
-	char* sport=NULL;
-	appinfo.status=id;
-	clearscreen();
-	printprofile(id,file,sport);
-	switch(id){
-		case 1:
-			file= sFile();
-			break;
-		case 2: 
-			file= rFile();
-			break;
+	printf("\tLet's set you up.\n\n\n");
+	int id, packet_size=-1, baudrate=-1, nr_retries=-1, timeout=-1;
 
-	}
-	clearscreen();
-	printprofile(id,file,sport);
-	sport=serial();
-	clearscreen();
-	printprofile(id,file,sport);
-	appinfo.file=getOpen(file);
-	if(appinfo.file==NULL){
-        printf("\tI opened but can't find file, Exiting...\n");
-        exit(-1);
-    }
-	//falta baudrate, nr de tentativas etc, vou dar uns de default
-	setuplink(sport,id);
+	char* port=NULL;
 
-	startapp(file);
-	return 0;
+	char* file_name=NULL;
+
+	id = get_id();
+	if( id == RECEIVER || id == SENDER)
+		;
+	else
+		return ERROR;
+
+	clrscr();
+
+	printprofile(id, packet_size, baudrate, nr_retries, timeout, port, file_name);
+
+	packet_size = get_packet_size();
+
+	clrscr();
+
+	printprofile(id, packet_size, baudrate, nr_retries, timeout, port, file_name);
+
+	baudrate = get_baudrate();
+
+	clrscr();
+
+	printprofile(id, packet_size, baudrate, nr_retries, timeout, port, file_name);
+
+	nr_retries = get_retries();
+
+	clrscr();
+
+	printprofile(id, packet_size, baudrate, nr_retries, timeout, port, file_name);
+
+	timeout = get_timeout();
+
+	clrscr();
+
+	printprofile(id, packet_size, baudrate, nr_retries, timeout, port, file_name);
+	
+	port = get_serial_port();
+	
+	clrscr();
+
+	printprofile(id, packet_size, baudrate, nr_retries, timeout, port, file_name);
+
+    file_name = get_file_name(id);
+
+    initAppLayer(port, id, file_name,timeout, nr_retries, packet_size, baudrate);
+
+   	return 0;
 }
+

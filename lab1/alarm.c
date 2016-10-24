@@ -2,22 +2,22 @@
 #include <signal.h>
 #include <unistd.h>
 
-#include "linkdata.h"
-#include "alarm.h"
-int buzz;
+#include "link_layer.h"
+
+int alarmFired = 0;
+
 void handler(int signal) {
 	if (signal != SIGALRM)
 		return;
 
-	buzz = 1;
+	alarmFired = 1;
 
-	//add statistics
+	ll->statistics.timeout++;
 
-	printf("\t[alarm] Timeout! Retrying...\n");
+	printf("Timeout! Retrying...\n");
 }
 
 void setAlarm() {
-	printf("\t[alarm] Setting up alarm...\n");
 	struct sigaction action;
 	action.sa_handler = handler;
 	sigemptyset(&action.sa_mask);
@@ -25,9 +25,9 @@ void setAlarm() {
 
 	sigaction(SIGALRM, &action, NULL);
 
-	buzz = 0;
+	alarmFired = 0;
 
-	alarm(linkinfo.timeout);
+	alarm(ll->timeout);
 }
 
 void stopAlarm() {
