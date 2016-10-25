@@ -2,7 +2,7 @@
 #define ALARM_H_
 
 
-extern int alarmFired;
+extern int buzz;
 
 void alarmHandler(int signal);
 

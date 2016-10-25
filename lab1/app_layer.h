@@ -1,32 +1,38 @@
 #ifndef APP_LAYER_H_   /* Include guard */
 #define APP_LAYER_H_
 
-typedef struct {
-	int fd;
-	int status;
-	FILE * file;
-} ApplicationLayer;
-
-extern ApplicationLayer* al;
-
 typedef enum {
 	PARAM_SIZE = 0, PARAM_NAME = 1
 } CtrlPckgParam;
 
-int initAppLayer(char * port, int status, char * filePath, int timeout, int retries, int pktSize, int baudrate);
+typedef struct {
+	int fd;
+	int id;
+	FILE * file;
+} info_app_layer;
 
-FILE * openFile(char * filePath);
+
+extern info_app_layer* app_info;
+
+void printprofile(int id, int packet_size, int baudrate, int nr_retries, int timeout, char* port, char* file);
+
+int get_app(char * port, int id, char * filePath, int timeout, int retries, int pktSize, int baudrate);
+
+FILE * open_file(char * filePath);
 
 int sendData(char * filePath, int fileSize);
+
 int receiveData(char * filePath);
 
 int sendCtrlPkt(int ctrlField, char * filePath, int fileSize);
+
 int rcvCtrlPkt(int controlField, int * fileSize, char ** filePath);
 
 int sendDataPkt(char * buffer, int bytesRead, int i);
+
 int rcvDataPkt(unsigned char ** buffer,int i);
 
-void printStatistics();
+void print_stats();
 
 int get_table_nr(int choice);
 
@@ -42,11 +48,11 @@ int get_packet_size();
 
 int get_baudrate();
 
-char* get_file_name(int status);
+char* get_file_name(int id);
 
-void printProgressBar(char * fileName, int bytes, int size, int status);
+void print_progress(char * fileName, int bytes, int size, int id);
 
-void printWaiting(int status);
+void print_wait(int id);
 
 void clrscr();
 
@@ -56,6 +62,5 @@ char* r_file();
 
 char* searchcd(char* filename);
 
-void printprofile(int id, int packet_size, int baudrate, int nr_retries, int timeout, char* port, char* file);
 
 #endif // APP_LAYER_H_

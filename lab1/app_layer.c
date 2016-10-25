@@ -13,319 +13,9 @@
 #include "link_layer.h"
 #include "app_layer.h"
 
-ApplicationLayer* al;
+info_app_layer* app_info;
 
 int real=-1;
-
-int initAppLayer(char* port, int status, char * filePath,int timeout, int retries, int pktSize, int baudrate) {
-	al = (ApplicationLayer*) malloc(sizeof(ApplicationLayer));
-
-	al->fd = openSerialPort(port);
-	
-	if (al->fd < 0) {
-		printf("ERROR in initAppLayer(): could not open serial port\n");
-		return ERROR;
-	}
-	al->status = status;
-
-	al->file = openFile(filePath);
-	
-	int fileSize;
-
-	if (al->status == SENDER) {
-		struct stat st; 
-		if (stat(filePath, &st) == 0)
-			fileSize = st.st_size;
-		else {
-			printf("ERROR getting file size!\n");
-			return ERROR;
-		}
-	}
-	
-	if (al->file == NULL )
-		return ERROR;	
-
-	if (initLinkLayer(port, baudrate, pktSize, timeout, retries) < 0) {
-		printf("ERROR in initAppLayer(): could not initialize link layer\n");
-		return ERROR;
-	}
-	
-	printWaiting(al->status);
-	
-	if (llopen() == ERROR)
-		return ERROR;
-
-	if (al->status == SENDER)
-		sendData(filePath, fileSize);
-	else if (al->status == RECEIVER)
-		receiveData(filePath);
-	
-	llclose();
-	closeSerialPort();
-	
-	//printStatistics();
-
-	return 0;
-		
-}
-
-FILE * openFile(char * filePath) {
-	
-	FILE * file;
-	
-	if(al->status == SENDER) file = fopen(filePath, "rb");
-	else file = fopen(filePath, "wb");
-		
-	if(file == NULL) {
-		printf("ERROR in openFile(): error opening file with path <%s>\n", filePath);
-		return NULL;
-	}
-
-	return file;	
-}
-
-int sendData(char * filePath, int fileSize) {
-
-	if (sendCtrlPkt(CTRL_PKT_START, filePath, fileSize) < 0)
-		return ERROR;
-	
-	ll->statistics.msgSent++;
-
-	int bytesRead = 0, i = 0, bytesAcumulator = 0;;
-	char * buffer = malloc(ll->pktSize * sizeof(char));
-
-	while((bytesRead = fread(buffer, sizeof(char), ll->pktSize, al->file)) > 0){
-		if(sendDataPkt(buffer, bytesRead, i) < 0)
-			return ERROR;
-
-		ll->statistics.msgSent++;
-		i++;
-		if (i > 207)
-			i = 0;
-		bytesAcumulator += bytesRead;
-		printProgressBar(filePath, bytesAcumulator, fileSize, 0);
-	}
-
-	if (fclose(al->file) < 0) {
-		printf("ERROR in sendData(): error closing file!\n");
-		return ERROR;
-	}
-
-	if (sendCtrlPkt(CTRL_PKT_END, filePath, fileSize) < 0)
-		return ERROR;
-
-	ll->statistics.msgSent++;
-
-	printf("File sent!\n");
-
-	return 0;
-}
-
-
-
-int receiveData(char * filePath) {
-	int fileSize;
-
-	if(rcvCtrlPkt(CTRL_PKT_START, &fileSize, &filePath) < 0)
-		return ERROR;
-
-	ll->statistics.msgRcvd++;
-
-	int bytesRead, bytesAcumulator = 0, i = 0;
-	unsigned char * buffer = malloc(ll->pktSize * sizeof(char));
-
-	while (bytesAcumulator < fileSize){
-		bytesRead = rcvDataPkt(&buffer, i);
-		printf("%d\n", bytesRead);
-		if(bytesRead < 0)
-			return ERROR;
-		ll->statistics.msgRcvd++;
-		bytesAcumulator += bytesRead;
-		fwrite(buffer, sizeof(char), bytesRead, al->file);
-		i++;
-		if (i > 207)
-			i = 0;
-		printProgressBar(filePath, bytesAcumulator, fileSize, 1);
-	}
-
-	if (fclose(al->file) < 0) {
-		printf("ERROR in receiveData(): error closing file!\n");
-		return ERROR;
-	}
-
-	if (rcvCtrlPkt(CTRL_PKT_END, &fileSize, &filePath) < 0)
-		return ERROR;
-
-	ll->statistics.msgRcvd++;
-
-	printf("File received!\n");
-
-	return 0;
-}
-
-
-int sendCtrlPkt(int ctrlField, char * filePath, int fileSize) {
-
-	char sizeString[16];
-	sprintf(sizeString, "%d", fileSize);
-
-	int size = 5 + strlen(sizeString) + strlen(filePath);
-
-	unsigned char ctrlPckg[size];
-
-	ctrlPckg[0] = ctrlField + '0';
-	ctrlPckg[1] = PARAM_SIZE + '0';
-	ctrlPckg[2] = strlen(sizeString) + '0';
-
-
-	int i, acumulator = 3;
-	for(i = 0; i < strlen(sizeString); i++) {
-		ctrlPckg[acumulator] = sizeString[i];
-		acumulator++;;
-	}
-
-	ctrlPckg[acumulator] = PARAM_NAME + '0';
-	acumulator++;
-	ctrlPckg[acumulator] = strlen(filePath) + '0';
-	acumulator++;
-
-	for(i = 0; i < strlen(filePath); i++) {
-		ctrlPckg[acumulator] = filePath[i];
-		acumulator++;;
-	}
-
-	if (llwrite(ctrlPckg, size) < 0) {
-		printf("ERROR in sendCtrlPkt(): llwrite() function error!\n");
-		return ERROR;
-	}
-
-	return 0;
-}
-
-
-int rcvCtrlPkt(int controlField, int * fileSize, char ** filePath) {
-
-	unsigned char * info;
-
-	if (llread(&info) < 0) {
-		printf("ERROR in rcvCtrlPkt(): \n");
-		return ERROR;
-	}
-	
-	if ((info[0] - '0') != controlField) {
-		printf("ERROR in rcvCtrlPkt(): unexpected control field!\n");
-		return ERROR;
-	}
-
-	if ((info[1] - '0') != PARAM_SIZE) {
-		printf("ERROR in rcvCtrlPkt(): unexpected size param!\n");
-		return ERROR;
-	}
-
-	int i, fileSizeLength = (info[2] - '0'), acumulator = 3;
-
-	char fileSizeStr[MAX_STR_SIZE];
-
-	for(i = 0; i < fileSizeLength; i++) {
-		fileSizeStr[i] = info[acumulator];
-		acumulator++;
-	}
-
-	fileSizeStr[acumulator - 3] = '\0';
-
-	(*fileSize) = atoi(fileSizeStr);
-
-	if((info[acumulator] - '0') != PARAM_NAME) {
-		printf("ERROR in rcvCtrlPkt(): unexpected name param!\n");
-		return ERROR;
-	}
-
-	acumulator++;
-	
-	int pathLength = (info[acumulator] - '0');
-	acumulator++;
-
-	char pathStr[MAX_STR_SIZE];
-	
-	for(i = 0; i < pathLength; i++) {
-		pathStr[i] = info[acumulator];
-		acumulator++;
-	}
-
-	pathStr[i] = '\0';
-	strcpy((*filePath), pathStr);
-
-	return 0;
-}
-
-
-int sendDataPkt(char * buffer, int bytesRead, int i) {
-
-	int size = bytesRead + 4;
-	unsigned char dataPckg[size];
-
-	dataPckg[0] = CTRL_PKT_DATA + '0';
-	dataPckg[1] = i + '0';
-
-	dataPckg[2] = bytesRead / 256;
-	dataPckg[3] = bytesRead % 256;
-	memcpy(&dataPckg[4], buffer, bytesRead);
-
-	if (llwrite(dataPckg, size) < 0) {
-		printf("ERROR in sendDataPkt(): llwrite() function error!\n");
-		return ERROR;
-	}
-
-	return 0;
-}
-
-int rcvDataPkt(unsigned char ** buffer,int i) {
-
-	unsigned char * info = NULL;
-	int bytes = 0;
-
-	if (llread(&info) < 0) {
-		printf("ERROR in rcvDataPkt(): llread() function error!\n");
-		return ERROR;
-	}
-
-	if (info == NULL)
-		return 0;
-
-	int C = info[0] - '0';
-	int N = info[1] - '0';
-
-	if (C != CTRL_PKT_DATA) {
-		printf("ERROR in rcvDataPkt(): control field it's different from CTRL_PKT_DATA!\n");
-		return ERROR;
-	}
-	
-	if (N != i) {
-		printf("ERROR in rcvDataPkt(): sequence number it's wrong!\n");
-		return ERROR;
-	}
-
-	int L2 = info[2], L1 = info[3];
-	bytes = 256 * L2 + L1;
-
-	memcpy((*buffer), &info[4], bytes);
-
-	free(info);
-
-	return bytes;
-}
-
-void printStatistics() {
-	printf("\n");
-	printf("### Statistics ###\n\n");
-	printf("Timeouts: %d\n\n", ll->statistics.timeout);
-	printf("Sent messages: %d\n", ll->statistics.msgSent);
-	printf("Received messages: %d\n\n", ll->statistics.msgRcvd);
-	printf("Sent RR: %d\n", ll->statistics.rrSent);
-	printf("Received RR: %d\n\n", ll->statistics.rrRcvd);
-	printf("Sent REJ: %d\n", ll->statistics.rejSent);
-	printf("Received REJ: %d\n\n", ll->statistics.rejRcvd);
-}
 
 
 int get_id() {
@@ -467,31 +157,22 @@ char* get_file_name(int id) {
 }
 
 
-void printProgressBar(char * fileName, int bytes, int size, int mode) {
+void print_progress(char * fileName, int bytes, int size, int id) {
 	clrscr();
-	if (mode == 0)
+	if (id == 0)
 		printf("Sending %s...\n\n", fileName);
-	else if (mode == 1)
+	else if (id == 1)
 		printf("Receiving %s...\n\n", fileName);
 	
-	printf("[");
-	int i, barSize = 30;
-	for (i = 0; i < barSize; i++) {
-		if(((float)bytes / (float)size ) > ( (float)i / barSize))
-			printf("=");
-		else
-			printf(" ");
-	}
-	printf("]");
-	printf("  %d %%\t%d / %d bytes\n\n", (int)((float)bytes / (float)size * 100), bytes, size);
+	printf("\t%d / %d bytes\n\t%d %%\n\n", bytes, size, (int)((float)bytes / (float)size * 100));
 }
 
-void printWaiting(int mode) {
-	clrscr();
-	if (mode == 0)
-		printf("Waiting for receiver...\n\n");
+void print_wait(int id) {
+	printf("\n\n\n\n");
+	if (id == 0)
+		printf("\tWaiting for receiver...\n\n");
 	else
-		printf("Waiting for sender...\n\n");	
+		printf("\tWaiting for sender...\n\n");	
 }
 
 void clrscr() {
@@ -572,13 +253,15 @@ void printprofile(int id, int packet_size, int baudrate, int nr_retries, int tim
 	switch(id){
 		case 0:
 			printf("\tID: Sender\n");
-			if(file!=NULL)
+			if(file!=NULL){
 				printf("\tFile to send: %s\n", file);
+			}
 			break;
 		case 1: 
 			printf("\tID: Receiver\n");
-			if(file!=NULL)
+			if(file!=NULL){
 				printf("\tFile to receive: %s\n", file);
+			}
 			break;
 
 	}
@@ -590,7 +273,319 @@ void printprofile(int id, int packet_size, int baudrate, int nr_retries, int tim
 		printf("\tBaudrate chosen: %d\n", real);
 	if(nr_retries!=-1)
 		printf("\tNumber of retries allowed: %d\n", nr_retries);
-	if(timeout!=-1)
+	if(timeout!=-1){
 		printf("\tTimeout between try: %d\n", timeout);
+	}
 	printf("\n\n\n\n");
+}
+
+
+int get_app(char* port, int id, char* file,int timeout, int retries, int packet_size, int baudrate) {
+	app_info = (info_app_layer*) malloc(sizeof(info_app_layer));
+	app_info->fd = openSerialPort(port);
+	
+	if (app_info->fd < 0) {
+		printf("Error, could not open serial port\n");
+		return ERROR;
+	}
+	app_info->id = id;
+
+	app_info->file = open_file(file);
+	
+	int file_size;
+
+	if (app_info->id == SENDER) {
+		struct stat st; 
+		if (stat(file, &st) == 0)
+			file_size = st.st_size;
+		else {
+			printf("Error, could not get file size!\n");
+			return ERROR;
+		}
+	}
+	
+	if (app_info->file == NULL )
+		return ERROR;	
+
+	if (get_link_layer(port, baudrate, packet_size, timeout, retries) < 0) {
+		printf("Error in application layer, could not initialize link layer\n");
+		return ERROR;
+	}
+
+	print_wait(app_info->id);
+	
+	if (llopen() == ERROR)
+		return ERROR;
+
+	if (app_info->id == SENDER)
+		sendData(file, file_size);
+	else if (app_info->id == RECEIVER)
+		receiveData(file);
+	
+	llclose();
+	closeSerialPort();
+	
+	print_stats();
+
+	return 0;
+		
+}
+
+FILE * open_file(char * file_path) {
+	
+	FILE * file;
+	
+	if(app_info->id == SENDER) 
+		file = fopen(file_path, "rb");
+	else 
+		file = fopen(file_path, "wb");
+		
+	if(file == NULL) {
+		printf("Error opening file (%s)\n", file_path);
+		return NULL;
+	}
+
+	return file;	
+}
+
+int sendData(char* file, int fileSize) {
+
+	if (sendCtrlPkt(CTRL_PKT_START, file, fileSize) < 0)
+		return ERROR;
+	
+	link_info->stats_info.msg_sent++;
+
+	int bytesRead = 0, i = 0, bytesAcumulator = 0;;
+	char * buffer = malloc(link_info->pktSize * sizeof(char));
+
+	while((bytesRead = fread(buffer, sizeof(char), link_info->pktSize, app_info->file)) > 0){
+		if(sendDataPkt(buffer, bytesRead, i) < 0)
+			return ERROR;
+
+		link_info->stats_info.msg_sent++;
+		i++;
+		if (i > 207)
+			i = 0;
+		bytesAcumulator += bytesRead;
+		print_progress(file, bytesAcumulator, fileSize, 0);
+	}
+
+	if (fclose(app_info->file) < 0) {
+		printf("Error sending data, error closing file!\n");
+		return ERROR;
+	}
+
+	if (sendCtrlPkt(CTRL_PKT_END, file, fileSize) < 0)
+		return ERROR;
+
+	link_info->stats_info.msg_sent++;
+
+	printf("File sent!\n");
+
+	return 0;
+}
+
+
+
+int receiveData(char * filePath) {
+	int fileSize;
+
+	if(rcvCtrlPkt(CTRL_PKT_START, &fileSize, &filePath) < 0)
+		return ERROR;
+
+	link_info->stats_info.msg_rcv++;
+
+	int bytesRead, bytesAcumulator = 0, i = 0;
+	unsigned char * buffer = malloc(link_info->pktSize * sizeof(char));
+
+	while (bytesAcumulator < fileSize){
+		bytesRead = rcvDataPkt(&buffer, i);
+		printf("%d\n", bytesRead);
+		if(bytesRead < 0)
+			return ERROR;
+		link_info->stats_info.msg_rcv++;
+		bytesAcumulator += bytesRead;
+		fwrite(buffer, sizeof(char), bytesRead, app_info->file);
+		i++;
+		if (i > 207)
+			i = 0;
+		print_progress(filePath, bytesAcumulator, fileSize, 1);
+	}
+
+	if (fclose(app_info->file) < 0) {
+		printf("Error sending data error closing file!\n");
+		return ERROR;
+	}
+
+	if (rcvCtrlPkt(CTRL_PKT_END, &fileSize, &filePath) < 0)
+		return ERROR;
+
+	link_info->stats_info.msg_rcv++;
+
+	printf("File received!\n");
+
+	return 0;
+}
+
+
+int sendCtrlPkt(int ctrlField, char * filePath, int fileSize) {
+
+	char sizeString[16];
+	sprintf(sizeString, "%d", fileSize);
+
+	int size = 5 + strlen(sizeString) + strlen(filePath);
+
+	unsigned char ctrlPckg[size];
+
+	ctrlPckg[0] = ctrlField + '0';
+	ctrlPckg[1] = PARAM_SIZE + '0';
+	ctrlPckg[2] = strlen(sizeString) + '0';
+
+
+	int i, acumulator = 3;
+	for(i = 0; i < strlen(sizeString); i++) {
+		ctrlPckg[acumulator] = sizeString[i];
+		acumulator++;;
+	}
+
+	ctrlPckg[acumulator] = PARAM_NAME + '0';
+	acumulator++;
+	ctrlPckg[acumulator] = strlen(filePath) + '0';
+	acumulator++;
+
+	for(i = 0; i < strlen(filePath); i++) {
+		ctrlPckg[acumulator] = filePath[i];
+		acumulator++;;
+	}
+
+	if (llwrite(ctrlPckg, size) < 0) {
+		printf("Error sending control packet, llwrite() function error!\n");
+		return ERROR;
+	}
+
+	return 0;
+}
+
+int sendDataPkt(char * buffer, int bytesRead, int i) {
+
+	int size = bytesRead + 4;
+	unsigned char dataPckg[size];
+
+	dataPckg[0] = CTRL_PKT_DATA + '0';
+	dataPckg[1] = i + '0';
+
+	dataPckg[2] = bytesRead / 256;
+	dataPckg[3] = bytesRead % 256;
+	memcpy(&dataPckg[4], buffer, bytesRead);
+
+	if (llwrite(dataPckg, size) < 0) {
+		printf("Error sending data packet, llwrite() function error!\n");
+		return ERROR;
+	}
+
+	return 0;
+}
+
+
+int rcvCtrlPkt(int controlField, int * fileSize, char ** filePath) {
+
+	unsigned char * info;
+
+	if (llread(&info) < 0) {
+		printf("Error receiveing control packet\n");
+		return ERROR;
+	}
+	
+	if ((info[0] - '0') != controlField) {
+		printf("Error receiveing control packet, unexpected control field!\n");
+		return ERROR;
+	}
+
+	if ((info[1] - '0') != PARAM_SIZE) {
+		printf("Error receiveing control packet, unexpected size parameter!\n");
+		return ERROR;
+	}
+
+	int i, fileSizeLength = (info[2] - '0'), acumulator = 3;
+
+	char fileSizeStr[MAX_STR_SIZE];
+
+	for(i = 0; i < fileSizeLength; i++) {
+		fileSizeStr[i] = info[acumulator];
+		acumulator++;
+	}
+
+	fileSizeStr[acumulator - 3] = '\0';
+
+	(*fileSize) = atoi(fileSizeStr);
+
+	if((info[acumulator] - '0') != PARAM_NAME) {
+		printf("Error receiveing control packet, unexpected name param!\n");
+		return ERROR;
+	}
+
+	acumulator++;
+	
+	int pathLength = (info[acumulator] - '0');
+	acumulator++;
+
+	char pathStr[MAX_STR_SIZE];
+	
+	for(i = 0; i < pathLength; i++) {
+		pathStr[i] = info[acumulator];
+		acumulator++;
+	}
+
+	pathStr[i] = '\0';
+	strcpy((*filePath), pathStr);
+
+	return 0;
+}
+
+int rcvDataPkt(unsigned char ** buffer,int i) {
+
+	unsigned char * info = NULL;
+	int bytes = 0;
+
+	if (llread(&info) < 0) {
+		printf("Error receiveing data packet, llread() function error!\n");
+		return ERROR;
+	}
+
+	if (info == NULL)
+		return 0;
+
+	int C = info[0] - '0';
+	int N = info[1] - '0';
+
+	if (C != CTRL_PKT_DATA) {
+		printf("Error receiveing data packet, control field it's different from CTRL_PKT_DATA!\n");
+		return ERROR;
+	}
+	
+	if (N != i) {
+		printf("Error receiveing data packet, sequence number it's wrong!\n");
+		return ERROR;
+	}
+
+	int L2 = info[2], L1 = info[3];
+	bytes = 256 * L2 + L1;
+
+	memcpy((*buffer), &info[4], bytes);
+
+	free(info);
+
+	return bytes;
+}
+
+void print_stats() {
+	printf("\n");
+	printf("\t-- Ocurrences Registration --\n\n\n");
+	printf("\tTimeouts: %d\n", link_info->stats_info.timeout);
+	printf("\tMessages sent: %d\n", link_info->stats_info.msg_sent);
+	printf("\tRR frames sent: %d\n", link_info->stats_info.rr_sent);
+	printf("\tREJ frames sent: %d\n", link_info->stats_info.rej_sent);
+	printf("\tMessages received: %d\n", link_info->stats_info.msg_rcv);
+	printf("\tRR frames received: %d\n", link_info->stats_info.rr_rcv);
+	printf("\tREJ frames received: %d\n\n\n\n", link_info->stats_info.rej_rcv);
 }

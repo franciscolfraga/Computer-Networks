@@ -39,14 +39,13 @@ typedef enum {
 typedef struct {
 	int timeout;
 
-	int msgSent;
-	int msgRcvd;
+	int msg_sent;
+	int rej_sent;
+	int rr_sent;
 
-	int rrSent;
-	int rrRcvd;
-
-	int rejSent;
-	int rejRcvd;
+	int msg_rcv;
+	int rr_rcv;
+	int rej_rcv;
 
 } Statistics;
 
@@ -57,9 +56,8 @@ typedef struct {
 	unsigned int timeout;
 	unsigned int numRetries;
 	unsigned int pktSize;
-	struct termios oldtio, newtio;
-	Statistics statistics;
-} LinkLayer;
+	Statistics stats_info;
+} info_link_layer;
 
 typedef struct {
 	unsigned char frame[MAX_FRAME_SIZE];
@@ -70,13 +68,14 @@ typedef struct {
 } Frame;
 
 typedef enum {
-	CTRL_PKT_DATA = 0, CTRL_PKT_START = 1, CTRL_PKT_END = 2
+	CTRL_PKT_DATA = 1, CTRL_PKT_START = 2, CTRL_PKT_END = 3
 } ControlPacketType;
 
+struct termios oldtio, newtio;
 
-extern LinkLayer* ll;
+extern info_link_layer* link_info;
 
-int initLinkLayer(char* port, int baudRate, int pktSize, unsigned int timeout, unsigned int numTransmissions);
+int get_link_layer(char* port, int baudrate, unsigned int packet_size, unsigned int timeout, unsigned int retries);
 
 int getBaudrateChoice(int choice);
 

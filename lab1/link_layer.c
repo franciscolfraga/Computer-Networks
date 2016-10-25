@@ -13,25 +13,28 @@
 #include "app_layer.h"
 #include "alarm.h"
 
-LinkLayer* ll;
+info_link_layer* link_info;
 
-int initLinkLayer(char* port, int baudRate, int pktSize, unsigned int timeout, unsigned int numRetries) {
-	ll = (LinkLayer*) malloc(sizeof(LinkLayer));
+int get_link_layer(char* port, int baudrate, unsigned int packet_size, unsigned int timeout, unsigned int retries) {
+	link_info = (info_link_layer*) malloc(sizeof(info_link_layer));
 
-	strcpy(ll->port, port);
-	ll->baudRate = baudRate;
-	ll->sn = 0;
-	ll->timeout = timeout;
-	ll->numRetries = numRetries;
-	ll->pktSize = pktSize;
+	link_info->timeout = timeout;
+	link_info->stats_info.timeout = 0;
 
-	ll->statistics.timeout = 0;
-	ll->statistics.msgSent = 0;
-	ll->statistics.msgRcvd = 0;
-	ll->statistics.rrSent = 0;
-	ll->statistics.rrRcvd = 0;
-	ll->statistics.rejSent = 0;
-	ll->statistics.rejRcvd = 0;	
+	link_info->pktSize = packet_size;
+	link_info->stats_info.msg_sent = 0;
+	link_info->stats_info.msg_rcv = 0;
+
+	link_info->baudRate = baudrate;
+	link_info->sn = 0;
+
+	link_info->numRetries = retries;
+	link_info->stats_info.rr_sent = 0;
+	link_info->stats_info.rr_rcv = 0;
+	link_info->stats_info.rej_sent = 0;
+	link_info->stats_info.rej_rcv = 0;
+
+	strcpy(link_info->port, port);
 
 	if (setNewTermios() < 0)
     	return ERROR;
@@ -84,43 +87,43 @@ int openSerialPort(char* port) {
 
 int closeSerialPort() {
 	// set old settings
-	if (tcsetattr(al->fd, TCSANOW, &ll->oldtio) < 0) {
+	if (tcsetattr(app_info->fd, TCSANOW, &oldtio) < 0) {
 		printf("ERROR in closeSerialPort(): could not set old termios\n");
 		return ERROR;
 	}
 
-	close(al->fd);
+	close(app_info->fd);
 
 	return 0;
 }
 
 int setNewTermios() {
 	// save current port settings
-	if (tcgetattr(al->fd, &ll->oldtio) < 0) {
+	if (tcgetattr(app_info->fd, &oldtio) < 0) {
 		printf("ERROR in setNewTermios(): could not get old termios\n");
 		return ERROR;
 	}
     
     // set new termios
-    bzero(&ll->newtio, sizeof(ll->newtio));
-    ll->newtio.c_cflag = ll->baudRate | CS8 | CLOCAL | CREAD;
-    ll->newtio.c_iflag = IGNPAR;
-    ll->newtio.c_oflag = 0;
 
- 
-    ll->newtio.c_lflag = 0;
+    bzero(&newtio, sizeof(newtio));
+    newtio.c_cc[VTIME] = 0;   
+    newtio.c_cc[VMIN] = 1; 
 
-    ll->newtio.c_cc[VTIME] = 0;   
-    ll->newtio.c_cc[VMIN] = 1;   
+    newtio.c_cflag = link_info->baudRate | CS8 | CLOCAL | CREAD;
+    newtio.c_iflag = IGNPAR;
+    newtio.c_oflag = 0;
+	newtio.c_lflag = 0;
+  
 
 
-    if (tcflush(al->fd, TCIOFLUSH) < 0) {
-    	printf("ERROR in setNewTermios(): could not flush non-transmitted output data\n");
+    if (tcflush(app_info->fd, TCIOFLUSH) < 0) {
+    	printf("Error setting up new termios, could not flush non-transmitted output data\n");
     	return ERROR;
     }
 
-    if (tcsetattr(al->fd, TCSANOW, &ll->newtio) < -1) {
-    	printf("ERROR in setNewTermios(): could not set new termios\n");
+    if (tcsetattr(app_info->fd, TCSANOW, &newtio) < -1) {
+    	printf("Error setting up new termios, could not set new termios\n");
     	return ERROR;
     }
     return 0;
@@ -129,25 +132,25 @@ int setNewTermios() {
 int llopen() {
 	int counter = 0;
 
-	switch(al->status){
+	switch(app_info->id){
 		case SENDER:
-			while(counter < ll->numRetries) {
-				if (counter == 0 || alarmFired) {
-					alarmFired = 0;
-					sendCommand(al->fd, SET);
+			while(counter < link_info->numRetries) {
+				if (counter == 0 || buzz) {
+					buzz = 0;
+					sendCommand(app_info->fd, SET);
 					counter++;
 
 					setAlarm();
 				}
 
-				if (isCommand(receiveFrame(al->fd), UA)) {
+				if (isCommand(receiveFrame(app_info->fd), UA)) {
 					counter--;
 					break;
 				}
 			}
 
 			stopAlarm();
-			if (counter < ll->numRetries)
+			if (counter < link_info->numRetries)
 				printf("Connection successfully established!\n");
 			else {
 				printf("Could not establish a connection: maximum number of retries reached\n");
@@ -155,8 +158,8 @@ int llopen() {
 			}
 			break;
 		case RECEIVER:
-			if (isCommand(receiveFrame(al->fd), SET)) {
-				sendCommand(al->fd, UA);
+			if (isCommand(receiveFrame(app_info->fd), SET)) {
+				sendCommand(app_info->fd, UA);
 				printf("Connection successfully established!\n");
 			}
 			break;
@@ -167,40 +170,97 @@ int llopen() {
 	return 0;
 }
 
+int llclose() {
+	int counter = 0;
+
+	switch(app_info->id) {
+		case SENDER:
+			while(counter < link_info->numRetries) {
+				if (counter == 0 || buzz) {
+					buzz = 0;
+					sendCommand(app_info->fd, DISC);
+					counter++;
+					setAlarm();
+					if (isCommand(receiveFrame(app_info->fd), DISC)) {
+						sendCommand(app_info->fd, UA);
+						sleep(1);
+						break;
+					}
+				}
+			}
+
+			stopAlarm();
+			if (counter < link_info->numRetries)
+				printf("Connection successfully terminated!\n");
+			else {
+				printf("Could not disconect: maximum number of retries reached\n");
+				return ERROR;
+			}
+			break;
+		case RECEIVER:
+			while (!isCommand(receiveFrame(app_info->fd), DISC))
+				continue;
+
+			while(counter < link_info->numRetries) {
+				if (counter == 0 || buzz) {
+					buzz = 0;
+					counter++;
+					setAlarm();
+					sendCommand(app_info->fd, DISC);
+					if (isCommand(receiveFrame(app_info->fd), UA))
+						break;
+				}
+			}
+			stopAlarm();
+			if (counter < link_info->numRetries)
+				printf("Connection successfully terminated!\n");
+			else {
+				printf("Could not disconect: maximum number of retries reached\n");
+				return ERROR;
+			}
+			break;
+		default:
+			break;
+	}
+
+	return 0;
+}
+
+
 int llwrite(unsigned char* buf, int bufSize) {
 	int counter = 0;
 	Frame receivedFrame;
 
-	while(counter < ll->numRetries) {
-		if (counter == 0 || alarmFired) {
-			alarmFired = 0;
-			sendDataFrame(al->fd, buf, bufSize);
+	while(counter < link_info->numRetries) {
+		if (counter == 0 || buzz) {
+			buzz = 0;
+			sendDataFrame(app_info->fd, buf, bufSize);
 			counter++;
 
 			setAlarm();
 		}
 
-		receivedFrame = receiveFrame(al->fd);
+		receivedFrame = receiveFrame(app_info->fd);
 
 		if (isCommand(receivedFrame, RR)) {
-			ll->statistics.rrSent++;
+			link_info->stats_info.rr_sent++;
 
-			if(ll->sn != receivedFrame.sn)
-				ll->sn = receivedFrame.sn;
+			if(link_info->sn != receivedFrame.sn)
+				link_info->sn = receivedFrame.sn;
 
 			stopAlarm();
 			counter--;
 			break;
 
 		} else if (isCommand(receivedFrame, REJ)) {
-			ll->statistics.rejSent++;
+			link_info->stats_info.rej_sent++;
 			counter = 0;
 			stopAlarm();
 		}
 
 	}
 
-	if (counter >= ll->numRetries) {
+	if (counter >= link_info->numRetries) {
 		printf("Could not send frame: maximum number of retries reached\n");
 		stopAlarm();
 		return ERROR;
@@ -214,7 +274,7 @@ int llread(unsigned char ** message) {
 	Frame frm;
 
 	while (!disc) {
-		frm = receiveFrame(al->fd);
+		frm = receiveFrame(app_info->fd);
 		
 		switch (frm.type) {
 			case COMMAND:
@@ -223,21 +283,21 @@ int llread(unsigned char ** message) {
 
 				break;
 			case DATA:
-				if (frm.answer == RR && ll->sn == frm.sn) {
-					ll->statistics.rrRcvd++;
-					ll->sn = !frm.sn;
+				if (frm.answer == RR && link_info->sn == frm.sn) {
+					link_info->stats_info.rr_rcv++;
+					link_info->sn = !frm.sn;
 					dataSize = frm.size - DATA_FRAME_SIZE;
 					*message = malloc(dataSize);
 					memcpy(*message, &frm.frame[4], dataSize);
 					disc = 1;
 				}
 				else if (frm.answer == REJ) {
-					ll->statistics.rejRcvd++;
-					ll->sn = frm.sn;
+					link_info->stats_info.rej_rcv++;
+					link_info->sn = frm.sn;
 				}
 
 				if (frm.answer != NONE)
-					sendCommand(al->fd, frm.answer);
+					sendCommand(app_info->fd, frm.answer);
 				break;
 			case INVALID:
 				break;
@@ -245,62 +305,6 @@ int llread(unsigned char ** message) {
 				return ERROR;
 		}
 
-	}
-
-	return 0;
-}
-
-int llclose() {
-	int counter = 0;
-
-	switch(al->status) {
-		case SENDER:
-			while(counter < ll->numRetries) {
-				if (counter == 0 || alarmFired) {
-					alarmFired = 0;
-					sendCommand(al->fd, DISC);
-					counter++;
-					setAlarm();
-					if (isCommand(receiveFrame(al->fd), DISC)) {
-						sendCommand(al->fd, UA);
-						sleep(1);
-						break;
-					}
-				}
-			}
-
-			stopAlarm();
-			if (counter < ll->numRetries)
-				printf("Connection successfully terminated!\n");
-			else {
-				printf("Could not disconect: maximum number of retries reached\n");
-				return ERROR;
-			}
-			break;
-		case RECEIVER:
-			while (!isCommand(receiveFrame(al->fd), DISC))
-				continue;
-
-			while(counter < ll->numRetries) {
-				if (counter == 0 || alarmFired) {
-					alarmFired = 0;
-					counter++;
-					setAlarm();
-					sendCommand(al->fd, DISC);
-					if (isCommand(receiveFrame(al->fd), UA))
-						break;
-				}
-			}
-			stopAlarm();
-			if (counter < ll->numRetries)
-				printf("Connection successfully terminated!\n");
-			else {
-				printf("Could not disconect: maximum number of retries reached\n");
-				return ERROR;
-			}
-			break;
-		default:
-			break;
 	}
 
 	return 0;
@@ -359,7 +363,7 @@ int sendDataFrame(int fd, unsigned char* data, unsigned int size) {
 	
 	df.frame[0] = FLAG;
 	df.frame[1] = A03;
-	df.frame[2] = ll->sn << 5;
+	df.frame[2] = link_info->sn << 5;
 	df.frame[3] = df.frame[1] ^ df.frame[2];
 	memcpy(&df.frame[4], data, size);
 	df.frame[4 + size] = getBCC2(data, size);
@@ -400,13 +404,13 @@ int sendCommand(int fd, Command cmd) {
 		case RR:
 			frame[1] = getAFromRspn();
 			frame[2] = C_RR;
-			frame[2] |= (ll->sn << 5);
+			frame[2] |= (link_info->sn << 5);
 			frame[3] = frame[1] ^ frame[2];
 			break;
 		case REJ:
 			frame[1] = getAFromRspn();
 			frame[2] = C_REJ;
-			frame[2] |= (ll->sn << 5);
+			frame[2] |= (link_info->sn << 5);
 			frame[3] = frame[1] ^ frame[2];
 			break;
 		default:
@@ -428,7 +432,7 @@ int sendCommand(int fd, Command cmd) {
 }
 
 unsigned char getAFromCmd() {
-	switch(al->status){
+	switch(app_info->id){
 		case SENDER:
 			return A03;
 		case RECEIVER:
@@ -438,7 +442,7 @@ unsigned char getAFromCmd() {
 }
 
 unsigned char getAFromRspn() {
-	switch(al->status){
+	switch(app_info->id){
 		case SENDER:
 			return A01;
 		case RECEIVER:
@@ -562,7 +566,7 @@ Frame receiveFrame(int fd) {
 }
 
 Frame stuff(Frame df) {
-	Frame stuffedFrame;
+	Frame stuffed_frame;
 	unsigned int newSize = df.size;
 
 	int i;
@@ -571,41 +575,43 @@ Frame stuff(Frame df) {
 			newSize++;
 	}
 
-	stuffedFrame.frame[0] = df.frame[0];
+	stuffed_frame.frame[0] = df.frame[0];
 	int j = 1;
 	for (i = 1; i < (df.size - 1); i++) {
 		if (df.frame[i] == FLAG || df.frame[i] == ESCAPE) {
-			stuffedFrame.frame[j] = ESCAPE;
-			stuffedFrame.frame[++j] = df.frame[i] ^ 0x20;
+			stuffed_frame.frame[j] = ESCAPE;
+			stuffed_frame.frame[++j] = df.frame[i] ^ 0x20;
 		}
 		else
-			stuffedFrame.frame[j] = df.frame[i];
+			stuffed_frame.frame[j] = df.frame[i];
 		j++;
 	}
 	
-	stuffedFrame.frame[j] = df.frame[i];
-	stuffedFrame.size = newSize;
+	stuffed_frame.size = newSize;
+	stuffed_frame.frame[j] = df.frame[i];
 	
-	return stuffedFrame;
+	return stuffed_frame;
 }
 
 Frame destuff(Frame df) {
-	Frame destuffedFrame;
-	destuffedFrame.sn = df.sn;
-	destuffedFrame.type = df.type;
-	destuffedFrame.answer = df.answer;
-	int j = 0;
+	Frame destuffed_frame;
+	destuffed_frame.answer = df.answer;
+	destuffed_frame.sn = df.sn;
+	destuffed_frame.type = df.type;
+
+	int size = 0;
 	
 	int i;
+
 	for (i = 0; i < df.size; i++) {
 		if (df.frame[i] == ESCAPE)
-			destuffedFrame.frame[j] = df.frame[++i] ^ 0x20;
+			destuffed_frame.frame[size] = df.frame[++i] ^ 0x20;
 		else
-			destuffedFrame.frame[j] = df.frame[i];
-		j++;
+			destuffed_frame.frame[size] = df.frame[i];
+		size++;
 	}
 
-	destuffedFrame.size = j;
+	destuffed_frame.size = size;
 
-	return destuffedFrame;
+	return destuffed_frame;
 }

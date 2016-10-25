@@ -49,6 +49,7 @@ int main()
 
 	timeout = get_timeout();
 
+
 	clrscr();
 
 	printprofile(id, packet_size, baudrate, nr_retries, timeout, port, file_name);
@@ -61,7 +62,11 @@ int main()
 
     file_name = get_file_name(id);
 
-    initAppLayer(port, id, file_name,timeout, nr_retries, packet_size, baudrate);
+    clrscr();
+
+    printprofile(id, packet_size, baudrate, nr_retries, timeout, port, file_name);
+
+    get_app(port, id, file_name,timeout, nr_retries, packet_size, baudrate);
 
    	return 0;
 }

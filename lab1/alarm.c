@@ -4,36 +4,42 @@
 
 #include "link_layer.h"
 
-int alarmFired = 0;
+int buzz = 0;
 
 void handler(int signal) {
 	if (signal != SIGALRM)
 		return;
 
-	alarmFired = 1;
+	link_info->stats_info.timeout++;
 
-	ll->statistics.timeout++;
+	buzz = 1;
 
 	printf("Timeout! Retrying...\n");
 }
 
 void setAlarm() {
 	struct sigaction action;
+
 	action.sa_handler = handler;
+
 	sigemptyset(&action.sa_mask);
+
 	action.sa_flags = 0;
+
+	buzz = 0;
 
 	sigaction(SIGALRM, &action, NULL);
 
-	alarmFired = 0;
-
-	alarm(ll->timeout);
+	alarm(link_info->timeout);
 }
 
 void stopAlarm() {
 	struct sigaction action;
+
 	action.sa_handler = NULL;
+
 	sigemptyset(&action.sa_mask);
+	
 	action.sa_flags = 0;
 
 	sigaction(SIGALRM, &action, NULL);
