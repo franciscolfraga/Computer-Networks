@@ -432,10 +432,13 @@ int sendCommand(int fd, Command cmd) {
 }
 
 unsigned char getAFromCmd() {
+
 	switch(app_info->id){
 		case SENDER:
+			//Comandos enviados pelo Emissor 
 			return A03;
 		case RECEIVER:
+			//Comandos enviados pelo Receptor
 			return A01;
 	}
 	return 0;
@@ -444,9 +447,12 @@ unsigned char getAFromCmd() {
 unsigned char getAFromRspn() {
 	switch(app_info->id){
 		case SENDER:
+			// Respostas enviadas pelo Receptor 
 			return A01;
 		case RECEIVER:
+			//Respostas enviadas pelo Emissor 
 			return A03;
+
 	}
 	return 0;
 }

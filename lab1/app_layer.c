@@ -80,7 +80,6 @@ int get_baudrate() {
 	
 		scanf("%d", &choice);
 		real=get_table_nr(choice);
-		printf("Realchoice:%d\n",real);
   	}
   return getBaudrateChoice(real);
 }
@@ -356,7 +355,7 @@ int sendData(char* file, int fileSize) {
 	link_info->stats_info.msg_sent++;
 
 	int bytesRead = 0, i = 0, bytesAcumulator = 0;;
-	char * buffer = malloc(link_info->pktSize * sizeof(char));
+	char* buffer = malloc(link_info->pktSize * sizeof(char));
 
 	while((bytesRead = fread(buffer, sizeof(char), link_info->pktSize, app_info->file)) > 0){
 		if(sendDataPkt(buffer, bytesRead, i) < 0)
@@ -400,13 +399,13 @@ int receiveData(char * filePath) {
 
 	while (bytesAcumulator < fileSize){
 		bytesRead = rcvDataPkt(&buffer, i);
-		printf("%d\n", bytesRead);
 		if(bytesRead < 0)
 			return ERROR;
 		link_info->stats_info.msg_rcv++;
 		bytesAcumulator += bytesRead;
 		fwrite(buffer, sizeof(char), bytesRead, app_info->file);
 		i++;
+		printf("%d\n", bytesRead);
 		if (i > 207)
 			i = 0;
 		print_progress(filePath, bytesAcumulator, fileSize, 1);
