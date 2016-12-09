@@ -1,7 +1,9 @@
-#ifndef DOWNLOAD_H_   /* Include guard */
-#define DOWNLOAD_H_
+#ifndef DOWNLOADAPP_H_   /* Include guard */
+#define DOWNLOADAPP_H_
 
 #include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -11,6 +13,8 @@
 #include <signal.h>
 #include <libgen.h>
 
+#define ERROR -1
+
 
 typedef struct Url {
 	char* nickname; 
@@ -19,12 +23,12 @@ typedef struct Url {
 	char* hostip;
 	char* filepath; 
 	char* filename;
+	int port;
 } url_info;
 
 extern url_info* info;
-
 char* return_me_ip(char* website_name);
 
-int url_handler(char* myarg);
+int args_handler(char* myarg);
 
-#endif // DOWNLOAD_H_
+#endif // DOWNLOADAPP_H_
