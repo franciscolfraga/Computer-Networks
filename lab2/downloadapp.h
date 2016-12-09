@@ -12,7 +12,8 @@
 #include <unistd.h>
 #include <signal.h>
 #include <libgen.h>
-
+#include <math.h>
+#include <time.h>
 #define ERROR -1
 
 
@@ -27,7 +28,7 @@ typedef struct Url {
 } url_info;
 
 extern url_info* info;
-char* return_me_ip(char* website_name);
+int return_me_ip(char* website_name);
 
 int args_handler(char* myarg);
 

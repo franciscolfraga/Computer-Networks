@@ -251,7 +251,8 @@ int lets_download( char* path) {
 	int acumulator=0;
 	printf("File created\n");
 	printf("Downloading...\n");
-	char* buf = malloc(10240);
+	char* buf = malloc(1024);
+	clock_t start = clock();
 	while ((bytes = read(secondconnection->fd, buf, sizeof(buf)))) {
 		if (bytes < 0) {
 			printf("Nothing was received from data socket fd.\n");
@@ -263,12 +264,15 @@ int lets_download( char* path) {
 			return -1;
 		}
 		acumulator+=bytes;
-		printf("Reading %d byte, and acumulating to %d bytes\n", bytes, acumulator);
+		printf("%d bytes\n",acumulator);
 
 	}
-
-	printf("Download of %d bytes completed!\n", acumulator);
-
+	clock_t end = clock();
+	float seconds = (float)(end - start) / CLOCKS_PER_SEC;
+	printf("Download of %d bytes completed in %f seconds!\n", acumulator,seconds);
+	
+	float bytespersecond=acumulator/seconds;
+	printf("Average connect speed of %2.2f bytes/second\n",bytespersecond );
 	if(secondconnection->fd) {
 		close(secondconnection->fd);
 		free(secondconnection);

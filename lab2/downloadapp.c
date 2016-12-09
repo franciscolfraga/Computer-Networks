@@ -1,8 +1,8 @@
 
 #include "downloadapp.h"
 #include "connect.h"
-
 url_info* info;
+char teste[1024]="";
 connection_info* firstconnection;
 connection_info* secondconnection;
 int main(int argc, char** argv){
@@ -21,19 +21,16 @@ int main(int argc, char** argv){
 		printf("Input not correct\n");
 		exit(-1);
 	}
-
-	//send the webiste name
-	char* ip=return_me_ip(info->hostname);
-	info->hostip=malloc(sizeof(ip));
-	strcpy(info->hostip,ip);
+	strcpy(info->filepath,teste);
+	//send the website name
+	return_me_ip(info->hostname);
 	int iport=21;
 	info->port=iport;
 	printf("Username: %s\n", info->nickname);
-	printf("Password: %s\n", info->pw);
-	printf("Host name: %s\n", info->hostname);
+	printf("Password: %s\n", info->pw);	
 	printf("Host Ip: %s\n", info->hostip);
 	printf("Host Port: %d\n", info->port);
-	printf("Host filepath: %s\n", info->filepath);
+	printf("Host filepath: %s.\n", info->filepath);
 
 	if((firstconnection->fd = start_connection(info->hostip,info->port)) == -1){
 		printf("Can't connect socket!\n");
@@ -73,17 +70,20 @@ int main(int argc, char** argv){
 	return 0;
 }
 
-char* return_me_ip(char* website_name){
-
-	struct hostent* h;
-	h = gethostbyname(website_name);
-
-	char* ip=inet_ntoa(*((struct in_addr *) h->h_addr));
-	return ip;
+int return_me_ip(char* hostname){
+	struct hostent *h;
+	if((h=gethostbyname(hostname)) == NULL){
+		herror("Can't get ip");
+		exit(1);
+}
+	char* ip=inet_ntoa(*((struct in_addr *)h->h_addr));
+	info->hostip=malloc(sizeof(ip));
+	strcpy(info->hostip,ip);
+	return 1;
 }
 
+
 int args_handler(char* myarg){
-	//check strlen later
 
 	char* checkftp=strtok(myarg,":");
 	if(strcmp(checkftp,"ftp")!=0){
@@ -100,8 +100,8 @@ int args_handler(char* myarg){
 	info->hostname=(char*)malloc(sizeof(checkhost));
 	strcpy(info->hostname, checkhost);
 	char* checkpath=strtok(NULL,"");
-	printf("Checkpath: %s\n", checkpath);
-	info->filepath=(char*)malloc(sizeof(checkpath));
-	info->filepath=checkpath;
+	info->filepath=(char*)malloc(sizeof(checkpath)*1000);
+	strcpy(teste, checkpath);
+	memcpy(info->filepath,checkpath,sizeof(teste));
 	return 0;
 }
