@@ -2,7 +2,7 @@
 #include "downloadapp.h"
 #include "connect.h"
 url_info* info;
-char teste[1024]="";
+char slash[1024]="";
 connection_info* firstconnection;
 connection_info* secondconnection;
 int main(int argc, char** argv){
@@ -21,7 +21,7 @@ int main(int argc, char** argv){
 		printf("Input not correct\n");
 		exit(-1);
 	}
-	strcpy(info->filepath,teste);
+	strcpy(info->filepath,slash);
 	//send the website name
 	return_me_ip(info->hostname);
 	int iport=21;
@@ -30,7 +30,7 @@ int main(int argc, char** argv){
 	printf("Password: %s\n", info->pw);	
 	printf("Host Ip: %s\n", info->hostip);
 	printf("Host Port: %d\n", info->port);
-	printf("Host filepath: %s.\n", info->filepath);
+	printf("Host filepath: %s\n", info->filepath);
 
 	if((firstconnection->fd = start_connection(info->hostip,info->port)) == -1){
 		printf("Can't connect socket!\n");
@@ -101,7 +101,7 @@ int args_handler(char* myarg){
 	strcpy(info->hostname, checkhost);
 	char* checkpath=strtok(NULL,"");
 	info->filepath=(char*)malloc(sizeof(checkpath)*1000);
-	strcpy(teste, checkpath);
-	memcpy(info->filepath,checkpath,sizeof(teste));
+	strcat(slash, checkpath);
+	memcpy(info->filepath,slash,sizeof(slash));
 	return 0;
 }

@@ -185,7 +185,7 @@ int passive() {
 	char * pasv = malloc(7 * sizeof(char));
 	sprintf(pasv, "pasv \r\n");
 	if (sending_socket(firstconnection->fd, pasv) == -1) {
-		printf("\t->Error sending a message to host.");
+		printf("Error sending a message to host.");
 		return -1;
 	} 
 
@@ -193,7 +193,7 @@ int passive() {
 	char* ip = malloc(50 * sizeof(char));
 
 	if( get_passive( ip ) < 0 ) {
-		printf("\t->Error interpreting passive message.\n");
+		printf("Error interpreting passive message.\n");
 		return -1;
 	}
 
@@ -206,7 +206,7 @@ int passive() {
 	char* port_info = malloc(1024 * sizeof(char));
 
 	if (sprintf(port_info, "Interpreted Port: %d", secondconnection->port) < 0)  {
-		printf("\t->Error printing port to string.\n");
+		printf("Error printing port to string.\n");
 		return -1;
 	}
 
@@ -217,7 +217,6 @@ int passive() {
 }
 
 int get_path(char * path) {	
-	
 	char * retr = malloc(1024 * sizeof(char));
 	sprintf(retr, "retr %s\r\n", path);
 
@@ -251,10 +250,11 @@ int lets_download( char* path) {
 	int acumulator=0;
 	printf("File created\n");
 	printf("Downloading...\n");
-	char* buf = malloc(1024);
+	char* buf = malloc(sizeof(char)*4096);
+	int point=1;
 	while ((bytes = read(secondconnection->fd, buf, sizeof(buf)))) {
 		if (bytes < 0) {
-			printf("Nothing was received from data socket fd.\n");
+			printf("Nothing was received from data socket file descriptor.\n");
 			return -1;
 		}
 
@@ -263,9 +263,37 @@ int lets_download( char* path) {
 			return -1;
 		}
 		acumulator+=bytes;
-		printf("%d bytes\n",acumulator);
-
+		if(acumulator % 70000 == 0){
+		printf("\033[2J");
+			if(point==1 || point==11){
+				point=1;
+				printf("Downloading |-    |\n");
+				point++;
+		}
+			else if(point==2 || point==10){
+				printf("Downloading |--   |\n");	
+				point++;
+		}
+			else if(point==3 || point==9){
+				printf("Downloading | --  |\n");	
+				point++;
+		}
+			else if(point==4 || point==8){
+				printf("Downloading |  -- |\n");	
+				point++;
+		}
+			else if(point==5 || point==7){
+				printf("Downloading |   --|\n");	
+				point++;
+		}
+			else if(point==6){
+				printf("Downloading |    -|\n");	
+				point++;
+		}
 	}
+	}
+	printf("\033[2J");
+	printf("File downloaded successfuly!\n");
 	
 	if(secondconnection->fd) {
 		close(secondconnection->fd);
